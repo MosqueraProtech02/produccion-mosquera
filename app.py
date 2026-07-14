@@ -62,16 +62,16 @@ def cargar_datos_reales():
         if not col_cajas: col_cajas = df.columns[2]
         
         # Renombrar columnas para estandarizarlas
-        df = df.rename(columns={col_fecha: "Fecha", col_persona: "Persona", col_cajas: "Cajas_Producidas"})
+        df = df.rename(columns={col_fecha: "Fecha", col_persona: "Persona", col_cajas: "Cajas_Identidad"})
         
         # Conversión y limpieza estricta de tipos
         df["Fecha"] = pd.to_datetime(df["Fecha"], errors='coerce').dt.date
-        df["Cajas_Producidas"] = pd.to_numeric(df["Cajas_Producidas"], errors='coerce').fillna(0).astype(int)
+        df["Cajas_Identidad"] = df["Cajas_Identidad"].astype(str).str.strip()
         df["Persona"] = df["Persona"].astype(str).str.strip()
         
         # Filtrar filas vacías o nulas
         df = df.dropna(subset=["Fecha", "Persona"])
-        return df[["Fecha", "Persona", "Cajas_Producidas"]]
+        return df[["Fecha", "Persona", "Cajas_Identidad"]]
     except Exception as e:
         st.sidebar.error(f"❌ Error de Conexión. Detalle: {str(e)}")
         # Base de datos simulada de respaldo
@@ -79,9 +79,9 @@ def cargar_datos_reales():
         personas = ["Yamith Marín", "Operario de Prueba A", "Operario de Prueba B"]
         fechas = pd.date_range(start="2026-05-01", end="2026-05-05", freq="D")
         records = []
-        for fecha in fechas:
+        for i, fecha in enumerate(fechas):
             for persona in personas:
-                records.append({"Fecha": fecha.date(), "Persona": persona, "Cajas_Producidas": int(np.random.randint(1, 5))})
+                records.append({"Fecha": fecha.date(), "Persona": persona, "Cajas_Identidad": f"Caja-{i}"})
         return pd.DataFrame(records)
 
 df_raw = cargar_datos_reales()
@@ -96,7 +96,7 @@ st.sidebar.image("https://cdn-icons-png.flaticon.com/512/771/771239.png", width=
 st.sidebar.title("Panel de Control")
 st.sidebar.markdown("Datos del archivo de Google Sheets.")
 
-st.sidebar.info(f"Columnas detectadas en tu hoja:\n- Fecha: `{df_raw.columns[0]}`\n- Operario: `{df_raw.columns[1]}`\n- Cajas: `{df_raw.columns[2]}`")
+st.sidebar.info(f"Columnas detectadas en tu hoja:\n- Fecha: `{df_raw.columns[0]}`\n- Operario: `{df_raw.columns[1]}`\n- Identidad Caja: `{df_raw.columns[2]}`")
 
 if st.sidebar.button("🔄 Sincronizar Google Sheets"):
     st.cache_data.clear()
@@ -114,42 +114,42 @@ else:
 # Filtrado por Operario
 df_filtrado_persona = df_raw if persona_seleccionada == "Todos" else df_raw[df_raw["Persona"] == persona_seleccionada]
 
-# --- NUEVOS CÁLCULOS CORREGIDOS ---
+# --- NUEVOS CÁLCULOS CORREGIDOS (CONTEO DE FILAS) ---
 
-# 1. Producción del Día Seleccionado (Asegurando correcta comparación de fechas)
+# 1. Producción del Día Seleccionado (Contamos cuántas filas/cajas hay registradas en ese día)
 if fecha_seleccionada:
     df_filtrado_dia = df_filtrado_persona[df_filtrado_persona["Fecha"] == fecha_seleccionada]
-    total_cajas_dia = df_filtrado_dia["Cajas_Producidas"].sum()
+    total_cajas_dia = len(df_filtrado_dia) # Usamos len() para contar las cajas físicas, no sumarlas
 else:
     total_cajas_dia = 0
 
-# 2. Obtener año y mes actual para filtrar la Meta Mensual de forma correcta
+# 2. Obtener año y mes actual para la Meta Mensual
 hoy = datetime.date.today()
 mes_actual = hoy.month
 anio_actual = hoy.year
 
-# Convertimos la columna Fecha a formato de fecha temporal para extraer el mes/año cómodamente
+# Convertimos la columna Fecha a formato de fecha temporal para filtrar por mes
 df_raw_datetime = df_raw.copy()
 df_raw_datetime["Fecha_dt"] = pd.to_datetime(df_raw_datetime["Fecha"])
 
-# Sumamos únicamente las cajas producidas en el mes actual
+# Contamos los registros del mes actual
 df_mes_actual = df_raw_datetime[
     (df_raw_datetime["Fecha_dt"].dt.month == mes_actual) & 
     (df_raw_datetime["Fecha_dt"].dt.year == anio_actual)
 ]
-total_acumulado_mes_actual = df_mes_actual["Cajas_Producidas"].sum()
+total_acumulado_mes_actual = len(df_mes_actual)
 
-# Si el mes actual aún no tiene registros en tu Google Sheets, tomamos el último mes registrado para no mostrar 0%
+# Si el mes actual aún no tiene registros, tomamos el último mes con datos para no mostrar 0%
 if total_acumulado_mes_actual == 0 and len(df_raw_datetime) > 0:
     ultimo_registro_fecha = df_raw_datetime["Fecha_dt"].max()
     df_mes_actual = df_raw_datetime[
         (df_raw_datetime["Fecha_dt"].dt.month == ultimo_registro_fecha.month) & 
         (df_raw_datetime["Fecha_dt"].dt.year == ultimo_registro_fecha.year)
     ]
-    total_acumulado_mes_actual = df_mes_actual["Cajas_Producidas"].sum()
+    total_acumulado_mes_actual = len(df_mes_actual)
 
-# 3. Avance Global
-total_acumulado_proyecto = df_raw["Cajas_Producidas"].sum()
+# 3. Avance Global (Total de filas en todo el proyecto)
+total_acumulado_proyecto = len(df_raw)
 
 # --- DISEÑO DE INTERFAZ ---
 st.title("📈 Dashboard Ejecutivo de Producción")
@@ -162,7 +162,6 @@ with col1:
     html_kpi1 = '<div class="kpi-card"><div class="kpi-title">Producción del Día ({fecha})</div><div class="kpi-value">{valor} Cajas</div></div>'.format(fecha=fecha_str, valor=total_cajas_dia)
     st.markdown(html_kpi1, unsafe_allow_html=True)
 with col2:
-    # Evitar divisiones por cero y calcular porcentaje correcto
     avance_mensual = (total_acumulado_mes_actual / META_MENSUAL_EQUIPO) * 100 if META_MENSUAL_EQUIPO > 0 else 0
     html_kpi2 = '<div class="kpi-card"><div class="kpi-title">Avance Meta Mensual</div><div class="kpi-value">{porcentaje:.1f}%</div></div>'.format(porcentaje=avance_mensual)
     st.markdown(html_kpi2, unsafe_allow_html=True)
@@ -172,7 +171,9 @@ with col3:
     st.markdown(html_kpi3, unsafe_allow_html=True)
 with col4:
     if fecha_seleccionada:
-        bajos_rendimientos = df_filtrado_dia[df_filtrado_dia["Cajas_Producidas"] < META_DIARIA_INDIVIDUAL]
+        # Contamos cuántas cajas hizo cada persona en el día y filtramos los que tengan menos de la meta individual
+        conteo_diario_personas = df_filtrado_dia.groupby("Persona").size().reset_index(name="Cajas")
+        bajos_rendimientos = conteo_diario_personas[conteo_diario_personas["Cajas"] < META_DIARIA_INDIVIDUAL]
         num_criticos = len(bajos_rendimientos)
     else:
         num_criticos = 0
@@ -185,12 +186,14 @@ col_graf1, col_graf2 = st.columns([3, 2])
 
 with col_graf1:
     st.markdown("### 🏆 Ranking de Producción Acumulada por Persona")
-    ranking_df = df_filtrado_persona.groupby("Persona")["Cajas_Producidas"].sum().reset_index().sort_values(by="Cajas_Producidas", ascending=True)
+    # Contamos la cantidad de filas (cajas) por operario
+    ranking_df = df_filtrado_persona.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
     fig_ranking = px.bar(ranking_df, x="Cajas_Producidas", y="Persona", orientation="h", color="Cajas_Producidas", color_continuous_scale="Viridis")
     st.plotly_chart(fig_ranking, use_container_width=True)
 
 with col_graf2:
     st.markdown("### 🎯 Progreso de Metas e Historial")
-    evolucion_diaria = df_filtrado_persona.groupby("Fecha")["Cajas_Producidas"].sum().reset_index()
+    # Contamos la cantidad de filas (cajas) por día
+    evolucion_diaria = df_filtrado_persona.groupby("Fecha").size().reset_index(name="Cajas_Producidas")
     fig_lineas = px.line(evolucion_diaria, x="Fecha", y="Cajas_Producidas", markers=True)
     st.plotly_chart(fig_lineas, use_container_width=True)
