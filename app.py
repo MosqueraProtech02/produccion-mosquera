@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import datetime
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -108,15 +109,47 @@ fechas_disponibles = sorted(list(df_raw["Fecha"].unique()))
 if len(fechas_disponibles) > 0:
     fecha_seleccionada = st.sidebar.selectbox("Seleccionar Día Específico:", fechas_disponibles)
 else:
-    fecha_seleccionada = "Sin Registros"
+    fecha_seleccionada = None
 
+# Filtrado por Operario
 df_filtrado_persona = df_raw if persona_seleccionada == "Todos" else df_raw[df_raw["Persona"] == persona_seleccionada]
-df_filtrado_dia = df_raw[df_raw["Fecha"] == fecha_seleccionada] if fecha_seleccionada != "Sin Registros" else df_raw
 
-# --- CÁLCULOS PRINCIPALES ---
+# --- NUEVOS CÁLCULOS CORREGIDOS ---
+
+# 1. Producción del Día Seleccionado (Asegurando correcta comparación de fechas)
+if fecha_seleccionada:
+    df_filtrado_dia = df_filtrado_persona[df_filtrado_persona["Fecha"] == fecha_seleccionada]
+    total_cajas_dia = df_filtrado_dia["Cajas_Producidas"].sum()
+else:
+    total_cajas_dia = 0
+
+# 2. Obtener año y mes actual para filtrar la Meta Mensual de forma correcta
+hoy = datetime.date.today()
+mes_actual = hoy.month
+anio_actual = hoy.year
+
+# Convertimos la columna Fecha a formato de fecha temporal para extraer el mes/año cómodamente
+df_raw_datetime = df_raw.copy()
+df_raw_datetime["Fecha_dt"] = pd.to_datetime(df_raw_datetime["Fecha"])
+
+# Sumamos únicamente las cajas producidas en el mes actual
+df_mes_actual = df_raw_datetime[
+    (df_raw_datetime["Fecha_dt"].dt.month == mes_actual) & 
+    (df_raw_datetime["Fecha_dt"].dt.year == anio_actual)
+]
+total_acumulado_mes_actual = df_mes_actual["Cajas_Producidas"].sum()
+
+# Si el mes actual aún no tiene registros en tu Google Sheets, tomamos el último mes registrado para no mostrar 0%
+if total_acumulado_mes_actual == 0 and len(df_raw_datetime) > 0:
+    ultimo_registro_fecha = df_raw_datetime["Fecha_dt"].max()
+    df_mes_actual = df_raw_datetime[
+        (df_raw_datetime["Fecha_dt"].dt.month == ultimo_registro_fecha.month) & 
+        (df_raw_datetime["Fecha_dt"].dt.year == ultimo_registro_fecha.year)
+    ]
+    total_acumulado_mes_actual = df_mes_actual["Cajas_Producidas"].sum()
+
+# 3. Avance Global
 total_acumulado_proyecto = df_raw["Cajas_Producidas"].sum()
-total_acumulado_mes_actual = df_raw["Cajas_Producidas"].sum()
-total_cajas_dia = df_filtrado_dia["Cajas_Producidas"].sum()
 
 # --- DISEÑO DE INTERFAZ ---
 st.title("📈 Dashboard Ejecutivo de Producción")
@@ -125,19 +158,25 @@ st.markdown("---")
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    html_kpi1 = '<div class="kpi-card"><div class="kpi-title">Producción del Día ({fecha})</div><div class="kpi-value">{valor} Cajas</div></div>'.format(fecha=fecha_seleccionada, valor=total_cajas_dia)
+    fecha_str = str(fecha_seleccionada) if fecha_seleccionada else ""
+    html_kpi1 = '<div class="kpi-card"><div class="kpi-title">Producción del Día ({fecha})</div><div class="kpi-value">{valor} Cajas</div></div>'.format(fecha=fecha_str, valor=total_cajas_dia)
     st.markdown(html_kpi1, unsafe_allow_html=True)
 with col2:
-    avance_mensual = (total_acumulado_mes_actual / META_MENSUAL_EQUIPO) * 100
+    # Evitar divisiones por cero y calcular porcentaje correcto
+    avance_mensual = (total_acumulado_mes_actual / META_MENSUAL_EQUIPO) * 100 if META_MENSUAL_EQUIPO > 0 else 0
     html_kpi2 = '<div class="kpi-card"><div class="kpi-title">Avance Meta Mensual</div><div class="kpi-value">{porcentaje:.1f}%</div></div>'.format(porcentaje=avance_mensual)
     st.markdown(html_kpi2, unsafe_allow_html=True)
 with col3:
-    avance_global = (total_acumulado_proyecto / META_GLOBAL_PROYECTO) * 100
+    avance_global = (total_acumulado_proyecto / META_GLOBAL_PROYECTO) * 100 if META_GLOBAL_PROYECTO > 0 else 0
     html_kpi3 = '<div class="kpi-card"><div class="kpi-title">Avance Global</div><div class="kpi-value">{porcentaje:.1f}%</div></div>'.format(porcentaje=avance_global)
     st.markdown(html_kpi3, unsafe_allow_html=True)
 with col4:
-    bajos_rendimientos = df_filtrado_dia[df_filtrado_dia["Cajas_Producidas"] < META_DIARIA_INDIVIDUAL]
-    html_kpi4 = '<div class="kpi-card"><div class="kpi-title">Alertas Bajo Rendimiento</div><div class="kpi-value" style="color: #EF553B;">{criticos} Pers.</div></div>'.format(criticos=len(bajos_rendimientos))
+    if fecha_seleccionada:
+        bajos_rendimientos = df_filtrado_dia[df_filtrado_dia["Cajas_Producidas"] < META_DIARIA_INDIVIDUAL]
+        num_criticos = len(bajos_rendimientos)
+    else:
+        num_criticos = 0
+    html_kpi4 = '<div class="kpi-card"><div class="kpi-title">Alertas Bajo Rendimiento</div><div class="kpi-value" style="color: #EF553B;">{criticos} Pers.</div></div>'.format(criticos=num_criticos)
     st.markdown(html_kpi4, unsafe_allow_html=True)
 
 # --- GRÁFICOS ---
@@ -146,12 +185,12 @@ col_graf1, col_graf2 = st.columns([3, 2])
 
 with col_graf1:
     st.markdown("### 🏆 Ranking de Producción Acumulada por Persona")
-    ranking_df = df_raw.groupby("Persona")["Cajas_Producidas"].sum().reset_index()
-    fig_ranking = px.bar(ranking_df, x="Cajas_Producidas", y="Persona", orientation="h")
+    ranking_df = df_filtrado_persona.groupby("Persona")["Cajas_Producidas"].sum().reset_index().sort_values(by="Cajas_Producidas", ascending=True)
+    fig_ranking = px.bar(ranking_df, x="Cajas_Producidas", y="Persona", orientation="h", color="Cajas_Producidas", color_continuous_scale="Viridis")
     st.plotly_chart(fig_ranking, use_container_width=True)
 
 with col_graf2:
     st.markdown("### 🎯 Progreso de Metas e Historial")
-    evolucion_diaria = df_raw.groupby("Fecha")["Cajas_Producidas"].sum().reset_index()
-    fig_lineas = px.line(evolucion_diaria, x="Fecha", y="Cajas_Producidas")
+    evolucion_diaria = df_filtrado_persona.groupby("Fecha")["Cajas_Producidas"].sum().reset_index()
+    fig_lineas = px.line(evolucion_diaria, x="Fecha", y="Cajas_Producidas", markers=True)
     st.plotly_chart(fig_lineas, use_container_width=True)
