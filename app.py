@@ -84,7 +84,33 @@ def cargar_datos_reales():
                 records.append({"Fecha": fecha.date(), "Persona": persona, "Cajas_Identidad": f"Caja-{i}"})
         return pd.DataFrame(records)
 
+# --- CARGA DE LA NUEVA PESTAÑA 'Estados' ---
+@st.cache_data(ttl=10)
+def cargar_datos_estados():
+    try:
+        # URL de exportación para la pestaña 'Estados' en formato CSV
+        # (Ajusta el 'gid' si Google Sheets le asigna uno diferente al crear la pestaña)
+        url_estados = "https://docs.google.com/spreadsheets/d/1ld0sxAyU9mYhQ69yv6w2d4sWhK8QW4E0XZlz4hYMhfA/export?format=csv&sheet=Estados"
+        df_est = pd.read_csv(url_estados)
+        
+        # Limpiar nombres de columnas
+        df_est.columns = [col.strip() for col in df_est.columns]
+        
+        # Asegurar tipos y limpiar vacíos
+        df_est = df_est.dropna(subset=["Fecha"]).copy()
+        df_est["Fecha"] = pd.to_datetime(df_est["Fecha"], errors='coerce').dt.date
+        df_est["TRD"] = pd.to_numeric(df_est["TRD"], errors='coerce').fillna(0).astype(int)
+        df_est["TP"] = pd.to_numeric(df_est["TP"], errors='coerce').fillna(0).astype(int)
+        df_est["VIG"] = pd.to_numeric(df_est["VIG"], errors='coerce').fillna(0).astype(int)
+        df_est["FA"] = pd.to_numeric(df_est["FA"], errors='coerce').fillna(0).astype(int)
+        
+        return df_est.dropna(subset=["Fecha"])
+    except Exception as e:
+        # Retorna DataFrame vacío si hay algún inconveniente inicial de conexión
+        return pd.DataFrame(columns=["Fecha", "TRD", "TP", "VIG", "FA"])
+
 df_raw = cargar_datos_reales()
+df_estados_raw = cargar_datos_estados()
 
 # --- CONSTANTES ---
 META_DIARIA_INDIVIDUAL = 3
@@ -116,10 +142,10 @@ df_filtrado_persona = df_raw if persona_seleccionada == "Todos" else df_raw[df_r
 
 # --- NUEVOS CÁLCULOS CORREGIDOS (CONTEO DE FILAS) ---
 
-# 1. Producción del Día Seleccionado (Contamos cuántas filas/cajas hay registradas en ese día)
+# 1. Producción del Día Seleccionado
 if fecha_seleccionada:
     df_filtrado_dia = df_filtrado_persona[df_filtrado_persona["Fecha"] == fecha_seleccionada]
-    total_cajas_dia = len(df_filtrado_dia) # Usamos len() para contar las cajas físicas, no sumarlas
+    total_cajas_dia = len(df_filtrado_dia)
 else:
     total_cajas_dia = 0
 
@@ -148,7 +174,7 @@ if total_acumulado_mes_actual == 0 and len(df_raw_datetime) > 0:
     ]
     total_acumulado_mes_actual = len(df_mes_actual)
 
-# 3. Avance Global (Total de filas en todo el proyecto)
+# 3. Avance Global
 total_acumulado_proyecto = len(df_raw)
 
 # --- DISEÑO DE INTERFAZ ---
@@ -171,7 +197,6 @@ with col3:
     st.markdown(html_kpi3, unsafe_allow_html=True)
 with col4:
     if fecha_seleccionada:
-        # Contamos cuántas cajas hizo cada persona en el día y filtramos los que tengan menos de la meta individual
         conteo_diario_personas = df_filtrado_dia.groupby("Persona").size().reset_index(name="Cajas")
         bajos_rendimientos = conteo_diario_personas[conteo_diario_personas["Cajas"] < META_DIARIA_INDIVIDUAL]
         num_criticos = len(bajos_rendimientos)
@@ -186,14 +211,64 @@ col_graf1, col_graf2 = st.columns([3, 2])
 
 with col_graf1:
     st.markdown("### 🏆 Ranking de Producción Acumulada por Persona")
-    # Contamos la cantidad de filas (cajas) por operario
     ranking_df = df_filtrado_persona.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
     fig_ranking = px.bar(ranking_df, x="Cajas_Producidas", y="Persona", orientation="h", color="Cajas_Producidas", color_continuous_scale="Viridis")
     st.plotly_chart(fig_ranking, use_container_width=True)
 
 with col_graf2:
     st.markdown("### 🎯 Progreso de Metas e Historial")
-    # Contamos la cantidad de filas (cajas) por día
     evolucion_diaria = df_filtrado_persona.groupby("Fecha").size().reset_index(name="Cajas_Producidas")
     fig_lineas = px.line(evolucion_diaria, x="Fecha", y="Cajas_Producidas", markers=True)
     st.plotly_chart(fig_lineas, use_container_width=True)
+
+# ==============================================================================
+# INTEGRACIÓN NUEVA: 📊 CONSOLIDADO ESTADOS (Histórico Diario Directo sin Sumar)
+# ==============================================================================
+st.markdown("---")
+st.header("📊 Consolidado Estados")
+st.subheader("Avance Diario e Histórico Consecutivo")
+
+try:
+    if not df_estados_raw.empty:
+        # Ordenar datos cronológicamente por la columna Fecha
+        df_estados_sorted = df_estados_raw.sort_values(by="Fecha").copy()
+        
+        # --- VALORES DEL ÚLTIMO REGISTRO ENCONTRADO ---
+        ultimo_registro = df_estados_sorted.iloc[-1]
+        fecha_reciente = ultimo_registro['Fecha'].strftime('%Y-%m-%d')
+        
+        st.markdown(f"##### 📅 Estado del día reportado en Sheets: **{fecha_reciente}**")
+        
+        # Renderizado de Tarjetas de Métricas Puras (sin acumular)
+        me1, me2, me3, me4 = st.columns(4)
+        with me1:
+            st.metric(label="TRD", value=f"{int(ultimo_registro['TRD'])}")
+        with me2:
+            st.metric(label="TP", value=f"{int(ultimo_registro['TP'])}")
+        with me3:
+            st.metric(label="VIG", value=f"{int(ultimo_registro['VIG'])}")
+        with me4:
+            st.metric(label="FA", value=f"{int(ultimo_registro['FA'])}")
+            
+        # --- GRÁFICO HISTÓRICO DE COMPORTAMIENTO ---
+        st.markdown("#### 📈 Comportamiento y Evolución Diaria de los Estados")
+        
+        # Establecer la fecha como índice para graficar la línea de tiempo real sin agregaciones
+        df_grafico_est = df_estados_sorted.set_index('Fecha')[['TRD', 'TP', 'VIG', 'FA']]
+        st.line_chart(df_grafico_est)
+        
+        # --- TABLA DE HISTORIAL DETALLADA ---
+        with st.expander("🔍 Ver historial de registros diarios"):
+            st.dataframe(
+                df_estados_sorted.style.format({'Fecha': lambda t: t.strftime('%Y-%m-%d')}),
+                use_container_width=True
+            )
+    else:
+        st.warning("⚠️ No se encontraron datos en la pestaña 'Estados' de tu Google Sheets.")
+        st.info(
+            "Por favor, ve a tu Google Sheets y asegúrate de haber creado una nueva pestaña "
+            "llamada exactamente **'Estados'** con los encabezados: **'Fecha'**, **'TRD'**, **'TP'**, **'VIG'** y **'FA'**."
+        )
+
+except Exception as e:
+    st.error(f"⚠️ Ocurrió un error al procesar el Consolidado de Estados: {e}")
