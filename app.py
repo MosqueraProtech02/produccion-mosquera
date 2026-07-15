@@ -64,8 +64,8 @@ def cargar_datos_reales():
         # Renombrar columnas para estandarizarlas
         df = df.rename(columns={col_fecha: "Fecha", col_persona: "Persona", col_cajas: "Cajas_Identidad"})
         
-        # Conversión y limpieza estricta de tipos
-        df["Fecha"] = pd.to_datetime(df["Fecha"], errors='coerce').dt.date
+        # Conversión y limpieza estricta de tipos a DateTime real
+        df["Fecha"] = pd.to_datetime(df["Fecha"], errors='coerce')
         df["Cajas_Identidad"] = df["Cajas_Identidad"].astype(str).str.strip()
         df["Persona"] = df["Persona"].astype(str).str.strip()
         
@@ -81,7 +81,7 @@ def cargar_datos_reales():
         records = []
         for i, fecha in enumerate(fechas):
             for persona in personas:
-                records.append({"Fecha": fecha.date(), "Persona": persona, "Cajas_Identidad": f"Caja-{i}"})
+                records.append({"Fecha": fecha, "Persona": persona, "Cajas_Identidad": f"Caja-{i}"})
         return pd.DataFrame(records)
 
 # --- CARGA DE LA NUEVA PESTAÑA 'Estados' ---
@@ -95,15 +95,17 @@ def cargar_datos_estados():
         # Limpiar nombres de columnas
         df_est.columns = [col.strip() for col in df_est.columns]
         
-        # Asegurar tipos y limpiar vacíos
+        # Asegurar tipos y limpiar vacíos convirtiendo a DateTime real
         df_est = df_est.dropna(subset=["Fecha"]).copy()
-        df_est["Fecha"] = pd.to_datetime(df_est["Fecha"], errors='coerce').dt.date
+        df_est["Fecha"] = pd.to_datetime(df_est["Fecha"], errors='coerce')
         df_est["TRD"] = pd.to_numeric(df_est["TRD"], errors='coerce').fillna(0).astype(int)
         df_est["TP"] = pd.to_numeric(df_est["TP"], errors='coerce').fillna(0).astype(int)
         df_est["VIG"] = pd.to_numeric(df_est["VIG"], errors='coerce').fillna(0).astype(int)
         df_est["FA"] = pd.to_numeric(df_est["FA"], errors='coerce').fillna(0).astype(int)
         
-        return df_est.dropna(subset=["Fecha"])
+        # Filtrar registros sin fecha válida y ordenar de forma cronológica estricta
+        df_est = df_est.dropna(subset=["Fecha"]).sort_values(by="Fecha")
+        return df_est
     except Exception as e:
         # Retorna DataFrame vacío si hay algún inconveniente inicial de conexión
         return pd.DataFrame(columns=["Fecha", "TRD", "TP", "VIG", "FA"])
@@ -130,9 +132,13 @@ if st.sidebar.button("🔄 Sincronizar Google Sheets"):
 lista_personas = ["Todos"] + sorted(list(df_raw["Persona"].unique()))
 persona_seleccionada = st.sidebar.selectbox("Seleccionar Operario:", lista_personas)
 
-fechas_disponibles = sorted(list(df_raw["Fecha"].unique()))
-if len(fechas_disponibles) > 0:
-    fecha_seleccionada = st.sidebar.selectbox("Seleccionar Día Específico:", fechas_disponibles)
+# Mostrar fechas ordenadas cronológicamente en formato legible 'YYYY-MM-DD'
+fechas_disponibles_dt = sorted(list(df_raw["Fecha"].unique()))
+fechas_disponibles_str = [f.strftime('%Y-%m-%d') for f in fechas_disponibles_dt]
+
+if len(fechas_disponibles_str) > 0:
+    fecha_seleccionada_str = st.sidebar.selectbox("Seleccionar Día Específico:", fechas_disponibles_str)
+    fecha_seleccionada = pd.to_datetime(fecha_seleccionada_str)
 else:
     fecha_seleccionada = None
 
@@ -153,23 +159,19 @@ hoy = datetime.date.today()
 mes_actual = hoy.month
 anio_actual = hoy.year
 
-# Convertimos la columna Fecha a formato de fecha temporal para filtrar por mes
-df_raw_datetime = df_raw.copy()
-df_raw_datetime["Fecha_dt"] = pd.to_datetime(df_raw_datetime["Fecha"])
-
 # Contamos los registros del mes actual
-df_mes_actual = df_raw_datetime[
-    (df_raw_datetime["Fecha_dt"].dt.month == mes_actual) & 
-    (df_raw_datetime["Fecha_dt"].dt.year == anio_actual)
+df_mes_actual = df_raw[
+    (df_raw["Fecha"].dt.month == mes_actual) & 
+    (df_raw["Fecha"].dt.year == anio_actual)
 ]
 total_acumulado_mes_actual = len(df_mes_actual)
 
 # Si el mes actual aún no tiene registros, tomamos el último mes con datos para no mostrar 0%
-if total_acumulado_mes_actual == 0 and len(df_raw_datetime) > 0:
-    ultimo_registro_fecha = df_raw_datetime["Fecha_dt"].max()
-    df_mes_actual = df_raw_datetime[
-        (df_raw_datetime["Fecha_dt"].dt.month == ultimo_registro_fecha.month) & 
-        (df_raw_datetime["Fecha_dt"].dt.year == ultimo_registro_fecha.year)
+if total_acumulado_mes_actual == 0 and len(df_raw) > 0:
+    ultimo_registro_fecha = df_raw["Fecha"].max()
+    df_mes_actual = df_raw[
+        (df_raw["Fecha"].dt.month == ultimo_registro_fecha.month) & 
+        (df_raw["Fecha"].dt.year == ultimo_registro_fecha.year)
     ]
     total_acumulado_mes_actual = len(df_mes_actual)
 
@@ -183,7 +185,7 @@ st.markdown("---")
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    fecha_str = str(fecha_seleccionada) if fecha_seleccionada else ""
+    fecha_str = fecha_seleccionada.strftime('%Y-%m-%d') if fecha_seleccionada else ""
     html_kpi1 = '<div class="kpi-card"><div class="kpi-title">Producción del Día ({fecha})</div><div class="kpi-value">{valor} Cajas</div></div>'.format(fecha=fecha_str, valor=total_cajas_dia)
     st.markdown(html_kpi1, unsafe_allow_html=True)
 with col2:
@@ -210,14 +212,29 @@ col_graf1, col_graf2 = st.columns([3, 2])
 
 with col_graf1:
     st.markdown("### 🏆 Ranking de Producción Acumulada por Persona")
+    # Agrupar y ordenar para asegurar un ranking limpio de barras
     ranking_df = df_filtrado_persona.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
     fig_ranking = px.bar(ranking_df, x="Cajas_Producidas", y="Persona", orientation="h", color="Cajas_Producidas", color_continuous_scale="Viridis")
     st.plotly_chart(fig_ranking, use_container_width=True)
 
 with col_graf2:
     st.markdown("### 🎯 Progreso de Metas e Historial")
-    evolucion_diaria = df_filtrado_persona.groupby("Fecha").size().reset_index(name="Cajas_Producidas")
+    # Agrupamos por fecha cronológica estructurada
+    df_progreso_sorted = df_filtrado_persona.sort_values(by="Fecha")
+    evolucion_diaria = df_progreso_sorted.groupby(df_progreso_sorted["Fecha"].dt.date).size().reset_index(name="Cajas_Producidas")
+    evolucion_diaria["Fecha"] = pd.to_datetime(evolucion_diaria["Fecha"])
+    evolucion_diaria = evolucion_diaria.sort_values(by="Fecha")
+    
+    # Formateamos el eje X en Plotly para evitar saltos o desorden temporal
     fig_lineas = px.line(evolucion_diaria, x="Fecha", y="Cajas_Producidas", markers=True)
+    fig_lineas.update_layout(
+        xaxis=dict(
+            type='date',
+            tickformat='%Y-%m-%d',
+            dtick="D1"  # Intervalos de un día
+        ),
+        margin=dict(l=20, r=20, t=10, b=20)
+    )
     st.plotly_chart(fig_lineas, use_container_width=True)
 
 # ==============================================================================
@@ -229,8 +246,12 @@ st.subheader("Avance Diario e Histórico Consecutivo")
 
 try:
     if not df_estados_raw.empty:
-        # Ordenar datos cronológicamente por la columna Fecha
-        df_estados_sorted = df_estados_raw.sort_values(by="Fecha").copy()
+        # Aseguramos que la columna 'Fecha' sea tratada como un objeto de tiempo real de Pandas
+        df_estados_sorted = df_estados_raw.copy()
+        df_estados_sorted["Fecha"] = pd.to_datetime(df_estados_sorted["Fecha"])
+        
+        # Ordenar cronológicamente de forma estricta (Evita saltos cruzados entre junio y julio)
+        df_estados_sorted = df_estados_sorted.sort_values(by="Fecha")
         
         # --- VALORES DEL ÚLTIMO REGISTRO ENCONTRADO ---
         ultimo_registro = df_estados_sorted.iloc[-1]
@@ -249,19 +270,38 @@ try:
         with me4:
             st.metric(label="FA", value=f"{int(ultimo_registro['FA'])}")
             
-        # --- GRÁFICO HISTÓRICO DE COMPORTAMIENTO ---
+        # --- GRÁFICO HISTÓRICO DE COMPORTAMIENTO (PLOTLY EN VEZ DE ST.LINE_CHART) ---
         st.markdown("#### 📈 Comportamiento y Evolución Diaria de los Estados")
         
-        # Establecer la fecha como índice para graficar la línea de tiempo real sin agregaciones
-        df_grafico_est = df_estados_sorted.set_index('Fecha')[['TRD', 'TP', 'VIG', 'FA']]
-        st.line_chart(df_grafico_est)
+        # Usamos Plotly Express para trazar las líneas de forma impecable y secuencial
+        fig_estados = px.line(
+            df_estados_sorted, 
+            x="Fecha", 
+            y=["TRD", "TP", "VIG", "FA"],
+            labels={"value": "Cantidad", "Fecha": "Fecha", "variable": "Estado"},
+            markers=True
+        )
+        
+        # Forzar a que el eje X sea un eje temporal continuo y no un grupo desordenado de strings
+        fig_estados.update_layout(
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            margin=dict(l=20, r=20, t=10, b=20),
+            xaxis=dict(
+                type='date',
+                tickformat='%Y-%m-%d',
+                dtick="D1"  # Fuerza visualización por días consecutivos reales en el calendario
+            )
+        )
+        
+        st.plotly_chart(fig_estados, use_container_width=True)
         
         # --- TABLA DE HISTORIAL DETALLADA ---
         with st.expander("🔍 Ver historial de registros diarios"):
-            st.dataframe(
-                df_estados_sorted.style.format({'Fecha': lambda t: t.strftime('%Y-%m-%d')}),
-                use_container_width=True
-            )
+            # Generar una copia formateada de la tabla ordenada cronológicamente
+            df_tabla_ver = df_estados_sorted.copy()
+            df_tabla_ver["Fecha"] = df_tabla_ver["Fecha"].dt.strftime('%Y-%m-%d')
+            st.dataframe(df_tabla_ver, use_container_width=True, hide_index=True)
+            
     else:
         st.warning("⚠️ No se encontraron datos en la pestaña 'Estados' de tu Google Sheets.")
         st.info(
