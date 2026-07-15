@@ -12,17 +12,50 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilos CSS de entorno corporativo
+# Estilos CSS de entorno corporativo (Incluye el nuevo diseño elegante del Logo/Encabezado)
 st.markdown("""
     <style>
     .main { background-color: #F8F9FA; }
+    
+    /* Contenedor del encabezado elegante */
+    .header-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #E9ECEF;
+        margin-bottom: 25px;
+    }
+    .logo-text {
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+    }
+    .logo-consorcio {
+        color: #1A365D; /* Azul Marino Formal */
+    }
+    .logo-prosyc {
+        color: #2E7D32; /* Verde Esmeralda Elegante */
+    }
+    .header-subtitle {
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 13px;
+        color: #6C757D;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        font-weight: 600;
+        text-align: right;
+    }
+    
+    /* Tarjetas KPI */
     .kpi-card {
         background-color: white;
         padding: 20px;
         border-radius: 10px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         text-align: center;
-        border-left: 5px solid #636EFA;
+        border-left: 5px solid #1A365D; /* Azul como color principal de la marca */
     }
     .kpi-title { font-size: 14px; color: #6c757d; font-weight: bold; text-transform: uppercase; }
     .kpi-value { font-size: 28px; font-weight: bold; color: #212529; margin-top: 5px; }
@@ -176,23 +209,31 @@ if total_acumulado_mes_actual == 0 and len(df_raw) > 0:
 # 3. Avance Global
 total_acumulado_proyecto = len(df_raw)
 
-# --- DISEÑO DE INTERFAZ ---
-st.title("📈 Dashboard Ejecutivo de Producción")
-st.subheader("Proceso: Clasificación de Documentos | Contrato 2026")
-st.markdown("---")
+# --- DISEÑO DE INTERFAZ CON EL NUEVO LOGO CORPORATIVO ---
+st.markdown("""
+    <div class="header-container">
+        <div class="logo-text">
+            <span class="logo-consorcio">Consorcio</span> <span class="logo-prosyc">Prosyc</span>
+        </div>
+        <div class="header-subtitle">
+            Dashboard Ejecutivo de Producción<br>
+            <span style="font-size: 11px; color: #ADB5BD;">Proceso: Clasificación de Documentos | Contrato 2026</span>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     fecha_str = fecha_seleccionada.strftime('%Y-%m-%d') if fecha_seleccionada else ""
-    html_kpi1 = '<div class="kpi-card"><div class="kpi-title">Producción del Día ({fecha})</div><div class="kpi-value">{valor} Cajas</div></div>'.format(fecha=fecha_str, valor=total_cajas_dia)
+    html_kpi1 = '<div class="kpi-card" style="border-left-color: #1A365D;"><div class="kpi-title">Producción del Día ({fecha})</div><div class="kpi-value">{valor} Cajas</div></div>'.format(fecha=fecha_str, valor=total_cajas_dia)
     st.markdown(html_kpi1, unsafe_allow_html=True)
 with col2:
     avance_mensual = (total_acumulado_mes_actual / META_MENSUAL_EQUIPO) * 100 if META_MENSUAL_EQUIPO > 0 else 0
-    html_kpi2 = '<div class="kpi-card"><div class="kpi-title">Avance Meta Mensual</div><div class="kpi-value">{porcentaje:.1f}%</div></div>'.format(porcentaje=avance_mensual)
+    html_kpi2 = '<div class="kpi-card" style="border-left-color: #2E7D32;"><div class="kpi-title">Avance Meta Mensual</div><div class="kpi-value">{porcentaje:.1f}%</div></div>'.format(porcentaje=avance_mensual)
     st.markdown(html_kpi2, unsafe_allow_html=True)
 with col3:
     avance_global = (total_acumulado_proyecto / META_GLOBAL_PROYECTO) * 100 if META_GLOBAL_PROYECTO > 0 else 0
-    html_kpi3 = '<div class="kpi-card"><div class="kpi-title">Avance Global</div><div class="kpi-value">{porcentaje:.1f}%</div></div>'.format(porcentaje=avance_global)
+    html_kpi3 = '<div class="kpi-card" style="border-left-color: #1A365D;"><div class="kpi-title">Avance Global</div><div class="kpi-value">{porcentaje:.1f}%</div></div>'.format(porcentaje=avance_global)
     st.markdown(html_kpi3, unsafe_allow_html=True)
 with col4:
     if fecha_seleccionada:
@@ -201,7 +242,7 @@ with col4:
         num_criticos = len(bajos_rendimientos)
     else:
         num_criticos = 0
-    html_kpi4 = '<div class="kpi-card"><div class="kpi-title">Alertas Bajo Rendimiento</div><div class="kpi-value" style="color: #EF553B;">{criticos} Pers.</div></div>'.format(criticos=num_criticos)
+    html_kpi4 = '<div class="kpi-card" style="border-left-color: #EF553B;"><div class="kpi-title">Alertas Bajo Rendimiento</div><div class="kpi-value" style="color: #EF553B;">{criticos} Pers.</div></div>'.format(criticos=num_criticos)
     st.markdown(html_kpi4, unsafe_allow_html=True)
 
 # --- GRÁFICOS ---
@@ -211,7 +252,14 @@ col_graf1, col_graf2 = st.columns([3, 2])
 with col_graf1:
     st.markdown("### 🏆 Ranking de Producción Acumulada por Persona")
     ranking_df = df_filtrado_persona.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
-    fig_ranking = px.bar(ranking_df, x="Cajas_Producidas", y="Persona", orientation="h", color="Cajas_Producidas", color_continuous_scale="Viridis")
+    fig_ranking = px.bar(
+        ranking_df, 
+        x="Cajas_Producidas", 
+        y="Persona", 
+        orientation="h", 
+        color="Cajas_Producidas", 
+        color_continuous_scale=["#1A365D", "#2E7D32"] # Colores Corporativos: Azul a Verde
+    )
     st.plotly_chart(fig_ranking, use_container_width=True)
 
 with col_graf2:
@@ -233,14 +281,15 @@ with col_graf2:
         x="Fecha", 
         y="Cajas_Acumuladas", 
         markers=True,
-        labels={"Cajas_Acumuladas": "Cajas Acumuladas"}
+        labels={"Cajas_Acumuladas": "Cajas Acumuladas"},
+        color_discrete_sequence=["#1A365D"] # Línea principal en color Azul Corporativo
     )
     
     # 5. Configuración limpia del eje X (Evita que se empalmen las etiquetas grises del calendario)
     fig_lineas.update_layout(
         xaxis=dict(
             type='date',
-            tickformat='%Y-%m-%d'  # Plotly calcula automáticamente los saltos correctos para que no se encimen
+            tickformat='%Y-%m-%d'
         ),
         margin=dict(l=20, r=20, t=10, b=20)
     )
@@ -284,7 +333,8 @@ try:
             x="Fecha", 
             y=["TRD", "TP", "VIG", "FA"],
             labels={"value": "Cantidad", "Fecha": "Fecha", "variable": "Estado"},
-            markers=True
+            markers=True,
+            color_discrete_sequence=["#1A365D", "#2E7D32", "#FF9800", "#E91E63"] # Colores balanceados y corporativos
         )
         
         # Configuración del eje X para que no se encimen las fechas
