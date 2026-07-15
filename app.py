@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilos CSS de entorno corporativo (Incluye el nuevo diseño elegante del Logo/Encabezado)
+# Estilos CSS de entorno corporativo (Diseño elegante del Logo/Encabezado)
 st.markdown("""
     <style>
     .main { background-color: #F8F9FA; }
@@ -102,7 +102,7 @@ def cargar_datos_reales():
         df["Cajas_Identidad"] = df["Cajas_Identidad"].astype(str).str.strip()
         df["Persona"] = df["Persona"].astype(str).str.strip()
         
-        # 💡 Evitamos descartar la fila si falta el nombre del Operario para no alterar el conteo de cajas
+        # Evitamos descartar la fila si falta el nombre del Operario para no alterar el conteo de cajas
         df["Persona"] = df["Persona"].fillna("No Asignado")
         
         # Filtrar únicamente filas donde la Fecha sea totalmente nula
@@ -235,7 +235,6 @@ with col2:
     html_kpi2 = '<div class="kpi-card" style="border-left-color: #2E7D32;"><div class="kpi-title">Avance Meta Mensual</div><div class="kpi-value">{porcentaje:.1f}%</div></div>'.format(porcentaje=avance_mensual)
     st.markdown(html_kpi2, unsafe_allow_html=True)
 with col3:
-    # 🎯 Ajustado con porcentaje a dos decimales y el contador de cajas acumulado/meta para transparencia
     avance_global = (total_acumulado_proyecto / META_GLOBAL_PROYECTO) * 100 if META_GLOBAL_PROYECTO > 0 else 0
     html_kpi3 = """
     <div class="kpi-card" style="border-left-color: #1A365D;">
@@ -270,34 +269,29 @@ with col_graf1:
         y="Persona", 
         orientation="h", 
         color="Cajas_Producidas", 
-        color_continuous_scale=["#1A365D", "#2E7D32"] # Colores Corporativos: Azul a Verde
+        color_continuous_scale=["#1A365D", "#2E7D32"]
     )
     st.plotly_chart(fig_ranking, use_container_width=True)
 
 with col_graf2:
     st.markdown("### 🎯 Progreso de Metas e Historial")
-    # 1. Aseguramos orden cronológico estricto
     df_progreso_sorted = df_filtrado_persona.sort_values(by="Fecha")
     
-    # 2. Agrupamos y contamos la producción por día
     evolucion_diaria = df_progreso_sorted.groupby(df_progreso_sorted["Fecha"].dt.date).size().reset_index(name="Cajas_Por_Dia")
     evolucion_diaria["Fecha"] = pd.to_datetime(evolucion_diaria["Fecha"])
     evolucion_diaria = evolucion_diaria.sort_values(by="Fecha")
     
-    # 3. CALCULAMOS EL ACUMULADO PROGRESIVO (Suma consecutiva para ascenso continuo)
     evolucion_diaria["Cajas_Acumuladas"] = evolucion_diaria["Cajas_Por_Dia"].cumsum()
     
-    # 4. Trazamos la línea acumulada en ascenso
     fig_lineas = px.line(
         evolucion_diaria, 
         x="Fecha", 
         y="Cajas_Acumuladas", 
         markers=True,
         labels={"Cajas_Acumuladas": "Cajas Acumuladas"},
-        color_discrete_sequence=["#1A365D"] # Línea principal en color Azul Corporativo
+        color_discrete_sequence=["#1A365D"]
     )
     
-    # 5. Configuración limpia del eje X (Evita que se empalmen las etiquetas grises del calendario)
     fig_lineas.update_layout(
         xaxis=dict(
             type='date',
@@ -320,13 +314,11 @@ try:
         df_estados_sorted["Fecha"] = pd.to_datetime(df_estados_sorted["Fecha"])
         df_estados_sorted = df_estados_sorted.sort_values(by="Fecha")
         
-        # Valores del último registro encontrado
         ultimo_registro = df_estados_sorted.iloc[-1]
         fecha_reciente = ultimo_registro['Fecha'].strftime('%Y-%m-%d')
         
         st.markdown(f"##### 📅 Estado del día reportado en Sheets: **{fecha_reciente}**")
         
-        # Tarjetas de Métricas Puras
         me1, me2, me3, me4 = st.columns(4)
         with me1:
             st.metric(label="TRD", value=f"{int(ultimo_registro['TRD'])}")
@@ -337,7 +329,6 @@ try:
         with me4:
             st.metric(label="FA", value=f"{int(ultimo_registro['FA'])}")
             
-        # Gráfico Histórico de Comportamiento
         st.markdown("#### 📈 Comportamiento y Evolución Diaria de los Estados")
         
         fig_estados = px.line(
@@ -346,10 +337,9 @@ try:
             y=["TRD", "TP", "VIG", "FA"],
             labels={"value": "Cantidad", "Fecha": "Fecha", "variable": "Estado"},
             markers=True,
-            color_discrete_sequence=["#1A365D", "#2E7D32", "#FF9800", "#E91E63"] # Colores balanceados y corporativos
+            color_discrete_sequence=["#1A365D", "#2E7D32", "#FF9800", "#E91E63"]
         )
         
-        # Configuración del eje X para que no se encimen las fechas
         fig_estados.update_layout(
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             margin=dict(l=20, r=20, t=10, b=20),
@@ -361,7 +351,6 @@ try:
         
         st.plotly_chart(fig_estados, use_container_width=True)
         
-        # Tabla de Historial Detallada
         with st.expander("🔍 Ver historial de registros diarios"):
             df_tabla_ver = df_estados_sorted.copy()
             df_tabla_ver["Fecha"] = df_tabla_ver["Fecha"].dt.strftime('%Y-%m-%d')
