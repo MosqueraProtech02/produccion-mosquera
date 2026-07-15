@@ -88,9 +88,8 @@ def cargar_datos_reales():
 @st.cache_data(ttl=10)
 def cargar_datos_estados():
     try:
-        # URL de exportación para la pestaña 'Estados' en formato CSV
-        # (Ajusta el 'gid' si Google Sheets le asigna uno diferente al crear la pestaña)
-        url_estados = "https://docs.google.com/spreadsheets/d/1ld0sxAyU9mYhQ69yv6w2d4sWhK8QW4E0XZlz4hYMhfA/export?format=csv&sheet=Estados"
+        # Usamos gviz/tq para apuntar directamente a la pestaña "Estados" de manera robusta
+        url_estados = "https://docs.google.com/spreadsheets/d/1ld0sxAyU9mYhQ69yv6w2d4sWhK8QW4E0XZlz4hYMhfA/gviz/tq?tqx=out:csv&sheet=Estados"
         df_est = pd.read_csv(url_estados)
         
         # Limpiar nombres de columnas
