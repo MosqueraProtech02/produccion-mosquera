@@ -63,7 +63,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- CARGA DE DATOS DESDE GOOGLE SHEETS ---
-@st.cache_data(ttl=60) # Refresco optimizado a 60 segundos para evitar bloqueos de Google
+@st.cache_data(ttl=10) # ⚡ Reducido a 10 segundos para actualización en tiempo real sin bloqueos
 def cargar_datos_reales():
     try:
         url = "https://docs.google.com/spreadsheets/d/1ld0sxAyU9mYhQ69yv6w2d4sWhK8QW4E0XZlz4hYMhfA/export?format=csv&gid=990786706"
@@ -102,8 +102,11 @@ def cargar_datos_reales():
         df["Cajas_Identidad"] = df["Cajas_Identidad"].astype(str).str.strip()
         df["Persona"] = df["Persona"].astype(str).str.strip()
         
-        # Filtrar filas vacías o nulas
-        df = df.dropna(subset=["Fecha", "Persona"])
+        # 💡 Evitamos descartar la fila si falta el nombre del Operario para no alterar el conteo de cajas
+        df["Persona"] = df["Persona"].fillna("No Asignado")
+        
+        # Filtrar únicamente filas donde la Fecha sea totalmente nula
+        df = df.dropna(subset=["Fecha"])
         return df[["Fecha", "Persona", "Cajas_Identidad"]]
     except Exception as e:
         st.sidebar.error(f"❌ Error de Conexión. Detalle: {str(e)}")
@@ -118,7 +121,7 @@ def cargar_datos_reales():
         return pd.DataFrame(records)
 
 # --- CARGA DE LA NUEVA PESTAÑA 'Estados' ---
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=10) # ⚡ Sincronizado a 10 segundos
 def cargar_datos_estados():
     try:
         # Usamos gviz/tq para apuntar directamente a la pestaña "Estados" de manera robusta
@@ -206,7 +209,7 @@ if total_acumulado_mes_actual == 0 and len(df_raw) > 0:
     ]
     total_acumulado_mes_actual = len(df_mes_actual)
 
-# 3. Avance Global
+# 3. Avance Global (Se tasa estrictamente sobre el total de filas físicas de manera directa)
 total_acumulado_proyecto = len(df_raw)
 
 # --- DISEÑO DE INTERFAZ CON EL NUEVO LOGO CORPORATIVO ---
@@ -232,8 +235,17 @@ with col2:
     html_kpi2 = '<div class="kpi-card" style="border-left-color: #2E7D32;"><div class="kpi-title">Avance Meta Mensual</div><div class="kpi-value">{porcentaje:.1f}%</div></div>'.format(porcentaje=avance_mensual)
     st.markdown(html_kpi2, unsafe_allow_html=True)
 with col3:
+    # 🎯 Ajustado con porcentaje a dos decimales y el contador de cajas acumulado/meta para transparencia
     avance_global = (total_acumulado_proyecto / META_GLOBAL_PROYECTO) * 100 if META_GLOBAL_PROYECTO > 0 else 0
-    html_kpi3 = '<div class="kpi-card" style="border-left-color: #1A365D;"><div class="kpi-title">Avance Global</div><div class="kpi-value">{porcentaje:.1f}%</div></div>'.format(porcentaje=avance_global)
+    html_kpi3 = """
+    <div class="kpi-card" style="border-left-color: #1A365D;">
+        <div class="kpi-title">Avance Global</div>
+        <div class="kpi-value">{porcentaje:.2f}%</div>
+        <div style="font-size: 11px; color: #6C757D; margin-top: 5px;">
+            ({acumulado:,} de {meta:,} Cajas)
+        </div>
+    </div>
+    """.format(porcentaje=avance_global, acumulado=total_acumulado_proyecto, meta=META_GLOBAL_PROYECTO)
     st.markdown(html_kpi3, unsafe_allow_html=True)
 with col4:
     if fecha_seleccionada:
