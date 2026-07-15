@@ -30,7 +30,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- CARGA DE DATOS DESDE GOOGLE SHEETS ---
-@st.cache_data(ttl=10) # Forzar refresco rápido cada 10 segundos
+@st.cache_data(ttl=60) # Refresco optimizado a 60 segundos para evitar bloqueos de Google
 def cargar_datos_reales():
     try:
         url = "https://docs.google.com/spreadsheets/d/1ld0sxAyU9mYhQ69yv6w2d4sWhK8QW4E0XZlz4hYMhfA/export?format=csv&gid=990786706"
@@ -85,29 +85,27 @@ def cargar_datos_reales():
         return pd.DataFrame(records)
 
 # --- CARGA DE LA NUEVA PESTAÑA 'Estados' ---
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=60)
 def cargar_datos_estados():
     try:
         # Usamos gviz/tq para apuntar directamente a la pestaña "Estados" de manera robusta
         url_estados = "https://docs.google.com/spreadsheets/d/1ld0sxAyU9mYhQ69yv6w2d4sWhK8QW4E0XZlz4hYMhfA/gviz/tq?tqx=out:csv&sheet=Estados"
         df_est = pd.read_csv(url_estados)
         
-        # Limpiar nombres de columnas
+        # Limpiar nombres de columnas y quitar vacíos
         df_est.columns = [col.strip() for col in df_est.columns]
-        
-        # Asegurar tipos y limpiar vacíos convirtiendo a DateTime real
         df_est = df_est.dropna(subset=["Fecha"]).copy()
+        
         df_est["Fecha"] = pd.to_datetime(df_est["Fecha"], errors='coerce')
         df_est["TRD"] = pd.to_numeric(df_est["TRD"], errors='coerce').fillna(0).astype(int)
         df_est["TP"] = pd.to_numeric(df_est["TP"], errors='coerce').fillna(0).astype(int)
         df_est["VIG"] = pd.to_numeric(df_est["VIG"], errors='coerce').fillna(0).astype(int)
         df_est["FA"] = pd.to_numeric(df_est["FA"], errors='coerce').fillna(0).astype(int)
         
-        # Filtrar registros sin fecha válida y ordenar de forma cronológica estricta
+        # Filtrar registros sin fecha válida y ordenar cronológicamente
         df_est = df_est.dropna(subset=["Fecha"]).sort_values(by="Fecha")
         return df_est
     except Exception as e:
-        # Retorna DataFrame vacío si hay algún inconveniente inicial de conexión
         return pd.DataFrame(columns=["Fecha", "TRD", "TP", "VIG", "FA"])
 
 df_raw = cargar_datos_reales()
@@ -145,7 +143,7 @@ else:
 # Filtrado por Operario
 df_filtrado_persona = df_raw if persona_seleccionada == "Todos" else df_raw[df_raw["Persona"] == persona_seleccionada]
 
-# --- NUEVOS CÁLCULOS CORREGIDOS (CONTEO DE FILAS) ---
+# --- NUEVOS CÁLCULOS (CONTEO DE FILAS) ---
 
 # 1. Producción del Día Seleccionado
 if fecha_seleccionada:
@@ -166,7 +164,7 @@ df_mes_actual = df_raw[
 ]
 total_acumulado_mes_actual = len(df_mes_actual)
 
-# Si el mes actual aún no tiene registros, tomamos el último mes con datos para no mostrar 0%
+# Si el mes actual aún no tiene registros, tomamos el último mes con datos
 if total_acumulado_mes_actual == 0 and len(df_raw) > 0:
     ultimo_registro_fecha = df_raw["Fecha"].max()
     df_mes_actual = df_raw[
@@ -212,33 +210,44 @@ col_graf1, col_graf2 = st.columns([3, 2])
 
 with col_graf1:
     st.markdown("### 🏆 Ranking de Producción Acumulada por Persona")
-    # Agrupar y ordenar para asegurar un ranking limpio de barras
     ranking_df = df_filtrado_persona.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
     fig_ranking = px.bar(ranking_df, x="Cajas_Producidas", y="Persona", orientation="h", color="Cajas_Producidas", color_continuous_scale="Viridis")
     st.plotly_chart(fig_ranking, use_container_width=True)
 
 with col_graf2:
     st.markdown("### 🎯 Progreso de Metas e Historial")
-    # Agrupamos por fecha cronológica estructurada
+    # 1. Aseguramos orden cronológico estricto
     df_progreso_sorted = df_filtrado_persona.sort_values(by="Fecha")
-    evolucion_diaria = df_progreso_sorted.groupby(df_progreso_sorted["Fecha"].dt.date).size().reset_index(name="Cajas_Producidas")
+    
+    # 2. Agrupamos y contamos la producción por día
+    evolucion_diaria = df_progreso_sorted.groupby(df_progreso_sorted["Fecha"].dt.date).size().reset_index(name="Cajas_Por_Dia")
     evolucion_diaria["Fecha"] = pd.to_datetime(evolucion_diaria["Fecha"])
     evolucion_diaria = evolucion_diaria.sort_values(by="Fecha")
     
-    # Formateamos el eje X en Plotly para evitar saltos o desorden temporal
-    fig_lineas = px.line(evolucion_diaria, x="Fecha", y="Cajas_Producidas", markers=True)
+    # 3. CALCULAMOS EL ACUMULADO PROGRESIVO (Suma consecutiva para ascenso continuo)
+    evolucion_diaria["Cajas_Acumuladas"] = evolucion_diaria["Cajas_Por_Dia"].cumsum()
+    
+    # 4. Trazamos la línea acumulada en ascenso
+    fig_lineas = px.line(
+        evolucion_diaria, 
+        x="Fecha", 
+        y="Cajas_Acumuladas", 
+        markers=True,
+        labels={"Cajas_Acumuladas": "Cajas Acumuladas"}
+    )
+    
+    # 5. Configuración limpia del eje X (Evita que se empalmen las etiquetas grises del calendario)
     fig_lineas.update_layout(
         xaxis=dict(
             type='date',
-            tickformat='%Y-%m-%d',
-            dtick="D1"  # Intervalos de un día
+            tickformat='%Y-%m-%d'  # Plotly calcula automáticamente los saltos correctos para que no se encimen
         ),
         margin=dict(l=20, r=20, t=10, b=20)
     )
     st.plotly_chart(fig_lineas, use_container_width=True)
 
 # ==============================================================================
-# INTEGRACIÓN NUEVA: 📊 CONSOLIDADO ESTADOS (Histórico Diario Directo sin Sumar)
+# INTEGRACIÓN: 📊 CONSOLIDADO ESTADOS
 # ==============================================================================
 st.markdown("---")
 st.header("📊 Consolidado Estados")
@@ -246,20 +255,17 @@ st.subheader("Avance Diario e Histórico Consecutivo")
 
 try:
     if not df_estados_raw.empty:
-        # Aseguramos que la columna 'Fecha' sea tratada como un objeto de tiempo real de Pandas
         df_estados_sorted = df_estados_raw.copy()
         df_estados_sorted["Fecha"] = pd.to_datetime(df_estados_sorted["Fecha"])
-        
-        # Ordenar cronológicamente de forma estricta (Evita saltos cruzados entre junio y julio)
         df_estados_sorted = df_estados_sorted.sort_values(by="Fecha")
         
-        # --- VALORES DEL ÚLTIMO REGISTRO ENCONTRADO ---
+        # Valores del último registro encontrado
         ultimo_registro = df_estados_sorted.iloc[-1]
         fecha_reciente = ultimo_registro['Fecha'].strftime('%Y-%m-%d')
         
         st.markdown(f"##### 📅 Estado del día reportado en Sheets: **{fecha_reciente}**")
         
-        # Renderizado de Tarjetas de Métricas Puras (sin acumular)
+        # Tarjetas de Métricas Puras
         me1, me2, me3, me4 = st.columns(4)
         with me1:
             st.metric(label="TRD", value=f"{int(ultimo_registro['TRD'])}")
@@ -270,10 +276,9 @@ try:
         with me4:
             st.metric(label="FA", value=f"{int(ultimo_registro['FA'])}")
             
-        # --- GRÁFICO HISTÓRICO DE COMPORTAMIENTO (PLOTLY EN VEZ DE ST.LINE_CHART) ---
+        # Gráfico Histórico de Comportamiento
         st.markdown("#### 📈 Comportamiento y Evolución Diaria de los Estados")
         
-        # Usamos Plotly Express para trazar las líneas de forma impecable y secuencial
         fig_estados = px.line(
             df_estados_sorted, 
             x="Fecha", 
@@ -282,32 +287,26 @@ try:
             markers=True
         )
         
-        # Forzar a que el eje X sea un eje temporal continuo y no un grupo desordenado de strings
+        # Configuración del eje X para que no se encimen las fechas
         fig_estados.update_layout(
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             margin=dict(l=20, r=20, t=10, b=20),
             xaxis=dict(
                 type='date',
-                tickformat='%Y-%m-%d',
-                dtick="D1"  # Fuerza visualización por días consecutivos reales en el calendario
+                tickformat='%Y-%m-%d'
             )
         )
         
         st.plotly_chart(fig_estados, use_container_width=True)
         
-        # --- TABLA DE HISTORIAL DETALLADA ---
+        # Tabla de Historial Detallada
         with st.expander("🔍 Ver historial de registros diarios"):
-            # Generar una copia formateada de la tabla ordenada cronológicamente
             df_tabla_ver = df_estados_sorted.copy()
             df_tabla_ver["Fecha"] = df_tabla_ver["Fecha"].dt.strftime('%Y-%m-%d')
             st.dataframe(df_tabla_ver, use_container_width=True, hide_index=True)
             
     else:
         st.warning("⚠️ No se encontraron datos en la pestaña 'Estados' de tu Google Sheets.")
-        st.info(
-            "Por favor, ve a tu Google Sheets y asegúrate de haber creado una nueva pestaña "
-            "llamada exactamente **'Estados'** con los encabezados: **'Fecha'**, **'TRD'**, **'TP'**, **'VIG'** y **'FA'**."
-        )
 
 except Exception as e:
     st.error(f"⚠️ Ocurrió un error al procesar el Consolidado de Estados: {e}")
