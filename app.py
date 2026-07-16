@@ -97,17 +97,16 @@ def cargar_datos_reales():
         # Renombrar columnas para estandarizarlas
         df = df.rename(columns={col_fecha: "Fecha", col_persona: "Persona", col_cajas: "Cajas_Identidad"})
         
-        # Conversión y limpieza estricta de tipos a DateTime real
+        # Conversión y limpieza de tipos
         df["Fecha"] = pd.to_datetime(df["Fecha"], errors='coerce')
-        df["Cajas_Identidad"] = df["Cajas_Identidad"].astype(str).str.strip()
-        df["Persona"] = df["Persona"].astype(str).str.strip()
+        df["Persona"] = df["Persona"].astype(str).str.strip().fillna("No Asignado")
         
-        # Evitamos descartar la fila si falta el nombre del Operario para no alterar el conteo de cajas
-        df["Persona"] = df["Persona"].fillna("No Asignado")
+        # 📌 AJUSTE CLAVE: Extraer solo los números de la columna de cajas y guardarlos como enteros
+        df["Cajas_Identidad_Num"] = df["Cajas_Identidad"].astype(str).str.extract(r'(\d+)').astype(float).fillna(0).astype(int)
         
         # Filtrar únicamente filas donde la Fecha sea totalmente nula
         df = df.dropna(subset=["Fecha"])
-        return df[["Fecha", "Persona", "Cajas_Identidad"]]
+        return df
     except Exception as e:
         st.sidebar.error(f"❌ Error de Conexión. Detalle: {str(e)}")
         # Base de datos simulada de respaldo
@@ -117,8 +116,10 @@ def cargar_datos_reales():
         records = []
         for i, fecha in enumerate(fechas):
             for persona in personas:
-                records.append({"Fecha": fecha, "Persona": persona, "Cajas_Identidad": f"Caja-{i}"})
-        return pd.DataFrame(records)
+                records.append({"Fecha": fecha, "Persona": persona, "Cajas_Identidad": f"Caja {3300 + i}"})
+        df_backup = pd.DataFrame(records)
+        df_backup["Cajas_Identidad_Num"] = df_backup["Cajas_Identidad"].astype(str).str.extract(r'(\d+)').astype(float).fillna(0).astype(int)
+        return df_backup
 
 # --- CARGA DE LA NUEVA PESTAÑA 'Estados' ---
 @st.cache_data(ttl=10) # ⚡ Sincronizado a 10 segundos
@@ -179,9 +180,9 @@ else:
 # Filtrado por Operario
 df_filtrado_persona = df_raw if persona_seleccionada == "Todos" else df_raw[df_raw["Persona"] == persona_seleccionada]
 
-# --- NUEVOS CÁLCULOS (CONTEO DE FILAS) ---
+# --- NUEVOS CÁLCULOS (MODIFICADOS PARA SEGUIMIENTO POR COLUMNA CAJA) ---
 
-# 1. Producción del Día Seleccionado
+# 1. Producción del Día Seleccionado (Sigue basándose en registros ingresados ese día)
 if fecha_seleccionada:
     df_filtrado_dia = df_filtrado_persona[df_filtrado_persona["Fecha"] == fecha_seleccionada]
     total_cajas_dia = len(df_filtrado_dia)
@@ -209,10 +210,14 @@ if total_acumulado_mes_actual == 0 and len(df_raw) > 0:
     ]
     total_acumulado_mes_actual = len(df_mes_actual)
 
-# 3. Avance Global (Se tasa estrictamente sobre el total de filas físicas de manera directa)
-total_acumulado_proyecto = len(df_raw)
+# 3. 🎯 AJUSTE DE AVANCE GLOBAL DINÁMICO:
+# Tomamos el valor de caja más alto ingresado en la columna "Cajas_Identidad_Num"
+if not df_raw.empty:
+    total_acumulado_proyecto = int(df_raw["Cajas_Identidad_Num"].max())
+else:
+    total_acumulado_proyecto = 0
 
-# --- DISEÑO DE INTERFAZ CON EL NUEVO LOGO CORPORATIVO ---
+# --- DISEÑO DE INTERFAZ ---
 st.markdown("""
     <div class="header-container">
         <div class="logo-text">
@@ -235,13 +240,14 @@ with col2:
     html_kpi2 = '<div class="kpi-card" style="border-left-color: #2E7D32;"><div class="kpi-title">Avance Meta Mensual</div><div class="kpi-value">{porcentaje:.1f}%</div></div>'.format(porcentaje=avance_mensual)
     st.markdown(html_kpi2, unsafe_allow_html=True)
 with col3:
+    # 🎯 Mostramos el avance global utilizando el número de caja real más alto
     avance_global = (total_acumulado_proyecto / META_GLOBAL_PROYECTO) * 100 if META_GLOBAL_PROYECTO > 0 else 0
     html_kpi3 = """
     <div class="kpi-card" style="border-left-color: #1A365D;">
-        <div class="kpi-title">Avance Global</div>
+        <div class="kpi-title">Avance Global Real</div>
         <div class="kpi-value">{porcentaje:.2f}%</div>
         <div style="font-size: 11px; color: #6C757D; margin-top: 5px;">
-            ({acumulado:,} de {meta:,} Cajas)
+            (Caja {acumulado:,} de {meta:,} Cajas)
         </div>
     </div>
     """.format(porcentaje=avance_global, acumulado=total_acumulado_proyecto, meta=META_GLOBAL_PROYECTO)
