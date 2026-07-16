@@ -301,11 +301,12 @@ col_graf1, col_graf2 = st.columns([3, 2])
 with col_graf1:
     st.markdown("### 🏆 Ranking de Producción Acumulada por Persona")
     if not df_filtrado_persona.empty:
-        # 1. Agrupar y ordenar para mostrar a todos los operarios
+        # Agrupar y ordenar para mostrar a todos los operarios
         ranking_df = df_filtrado_persona.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
         
-        # 2. Calcular altura dinámica: 25px por cada operario + 100px de márgenes base
-        altura_dinamica = max(400, len(ranking_df) * 25 + 100)
+        # Calcular altura dinámica de forma segura para pasarla como argumento en px.bar
+        num_colaboradores = len(ranking_df)
+        altura_calculada = max(450, num_colaboradores * 25 + 80)
         
         fig_ranking = px.bar(
             ranking_df, 
@@ -313,13 +314,14 @@ with col_graf1:
             y="Persona", 
             orientation="h", 
             color="Cajas_Producidas", 
-            color_continuous_scale=["#1A365D", "#2E7D32"]
+            color_continuous_scale=["#1A365D", "#2E7D32"],
+            height=altura_calculada  # Asignado directamente aquí de forma limpia
         )
-        # 3. Ajustar márgenes para nombres largos y definir altura
+        
+        # Ajustamos los márgenes exclusivamente para dar un espaciado decente a los textos
         fig_ranking.update_layout(
             margin=dict(l=180, r=20, t=20, b=20),
-            height=altura_dinamica,
-            yaxis=dict(autorange="ascending")  # Asegura orden correcto en la visualización
+            yaxis=dict(autorange="ascending")
         )
         st.plotly_chart(fig_ranking, use_container_width=True)
     else:
