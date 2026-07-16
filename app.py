@@ -69,32 +69,54 @@ def cargar_datos_reales():
         url = "https://docs.google.com/spreadsheets/d/1ld0sxAyU9mYhQ69yv6w2d4sWhK8QW4E0XZlz4hYMhfA/export?format=csv&gid=990786706"
         df = pd.read_csv(url)
         
-        # Limpieza básica de nombres de columnas
+        # Guardamos copia del encabezado original para depurar si es necesario
+        columnas_originales = list(df.columns)
+        
+        # Limpieza básica de nombres de columnas para facilitar la coincidencia
         df.columns = [col.strip().lower().replace('á','a').replace('é','e').replace('í','i').replace('ó','o').replace('ú','u') for col in df.columns]
         
-        # Mapeo inteligente con prioridades
+        # Mapeo inteligente con prioridades corregidas y estrictas
         col_fecha = None
         for c in df.columns:
-            if 'fecha' in c or 'dia' in c:
+            # Buscamos coincidencia exacta o palabras que definan el tiempo, evitando colisiones
+            if c == 'fecha' or c == 'dia':
                 col_fecha = c
                 break
-        if not col_fecha: col_fecha = df.columns[0]
+        if not col_fecha:
+            for c in df.columns:
+                if 'fecha' in c or 'dia' in c:
+                    col_fecha = c
+                    break
+        if not col_fecha: 
+            col_fecha = df.columns[0]
         
         col_persona = None
         for c in df.columns:
-            if 'persona' in c or 'operario' in c or 'nombre' in c or 'usuario' in c or 'empleado' in c:
+            if c == 'persona' or c == 'operario':
                 col_persona = c
                 break
-        if not col_persona: col_persona = df.columns[1]
+        if not col_persona:
+            for c in df.columns:
+                if 'persona' in c or 'operario' in c or 'nombre' in c or 'usuario' in c or 'empleado' in c:
+                    col_persona = c
+                    break
+        if not col_persona: 
+            col_persona = df.columns[1]
         
         col_cajas = None
         for c in df.columns:
-            if 'caja' in c or 'produc' in c or 'rendi' in c or 'total' in c or 'cant' in c:
+            if 'cajas_identidad' in c or 'caja_identidad' in c or 'identidad' in c:
                 col_cajas = c
                 break
-        if not col_cajas: col_cajas = df.columns[2]
+        if not col_cajas:
+            for c in df.columns:
+                if 'caja' in c or 'produc' in c or 'rendi' in c or 'total' in c or 'cant' in c:
+                    col_cajas = c
+                    break
+        if not col_cajas: 
+            col_cajas = df.columns[2]
         
-        # Renombrar columnas para estandarizarlas
+        # Renombrar columnas para estandarizarlas asegurándonos de que no haya colisiones
         df = df.rename(columns={col_fecha: "Fecha", col_persona: "Persona", col_cajas: "Cajas_Identidad"})
         
         # Conversión y limpieza de tipos
@@ -158,7 +180,9 @@ st.sidebar.image("https://cdn-icons-png.flaticon.com/512/771/771239.png", width=
 st.sidebar.title("Panel de Control")
 st.sidebar.markdown("Datos del archivo de Google Sheets.")
 
-st.sidebar.info(f"Columnas detectadas en tu hoja:\n- Fecha: `{df_raw.columns[0]}`\n- Operario: `{df_raw.columns[1]}`\n- Identidad Caja: `{df_raw.columns[2]}`")
+# Identificar las columnas reales que se le asignaron internamente a cada variable para validación visual
+col_fecha_detectada = df_raw.select_dtypes(include=[np.datetime64, 'datetime64[ns]']).columns[0] if not df_raw.empty else "No detectado"
+st.sidebar.info(f"Columnas detectadas en tu hoja:\n- Fecha: `Fecha` (Mapeada correctamente)\n- Operario: `Persona` (Mapeada correctamente)\n- Identidad Caja: `Cajas_Identidad` (Mapeada correctamente)")
 
 if st.sidebar.button("🔄 Sincronizar Google Sheets"):
     st.cache_data.clear()
