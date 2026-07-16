@@ -117,7 +117,10 @@ def cargar_datos_reales():
         
         # 1. Interpretación de fecha estricta (Prioriza formato DD/MM/AAAA)
         df["Fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True, errors='coerce')
-        df["Persona"] = df["Persona"].astype(str).str.strip().fillna("No Asignado")
+        
+        # Estandarizar nombres: Quita espacios extra y homogeniza el formato tipo Título (Capitalizado)
+        # Esto soluciona que "Luz Dary" y "luz Dary" se muestren por separado.
+        df["Persona"] = df["Persona"].astype(str).str.strip().str.title().fillna("No Asignado")
         
         # Extraer números de manera segura previniendo errores de conversión
         df["Cajas_Identidad_Num"] = df["Cajas_Identidad"].astype(str).str.extract(r'(\d+)').astype(float).fillna(0).astype(int)
@@ -192,16 +195,27 @@ if st.sidebar.button("🔄 Sincronizar Google Sheets", key="sync_btn"):
     st.cache_data.clear()
     st.rerun()
 
-# selectores dinámicos
-lista_personas = ["Todos"] + sorted(list(df_raw["Persona"].unique()))
+# --- LIMPIEZA AVANZADA DE OPERARIOS (Filtro Anti-Ruidos) ---
+# Excluye vacíos, 'No Asignado', y textos informales que se ingresen por error
+palabras_ruido = ["humedad", "observacion", "comentario", "error", "vacio", "no asignado", "nan", "prueba"]
+df_limpio = df_raw[
+    (df_raw["Persona"].notna()) & 
+    (df_raw["Persona"] != "") &
+    (df_raw["Persona"] != "No Asignado") &
+    (~df_raw["Persona"].str.lower().str.contains('|'.join(palabras_ruido))) &
+    (df_raw["Persona"].str.len() < 45) # Excluye textos descriptivos accidentalmente largos
+].copy()
+
+# Selectores dinámicos basados en la lista limpia
+lista_personas = ["Todos"] + sorted(list(df_limpio["Persona"].unique()))
 persona_seleccionada = st.sidebar.selectbox("Seleccionar Operario:", lista_personas)
 
-fechas_disponibles_dt = sorted(list(df_raw["Fecha"].unique()))
+fechas_disponibles_dt = sorted(list(df_limpio["Fecha"].unique()))
 fechas_disponibles_str = [pd.to_datetime(f).strftime('%Y-%m-%d') for f in fechas_disponibles_dt]
 
 if fechas_disponibles_str:
-    # 3. Posicionar el selector por defecto en el día real con datos más recientes
-    ultima_fecha_str = pd.to_datetime(df_raw["Fecha"].max()).strftime('%Y-%m-%d')
+    # Posicionar el selector por defecto en el día real con datos más recientes
+    ultima_fecha_str = pd.to_datetime(df_limpio["Fecha"].max()).strftime('%Y-%m-%d')
     try:
         index_defecto = fechas_disponibles_str.index(ultima_fecha_str)
     except ValueError:
@@ -217,9 +231,9 @@ else:
     fecha_seleccionada = None
 
 # --- FILTRADO DE DATOS ---
-df_filtrado_persona = df_raw if persona_seleccionada == "Todos" else df_raw[df_raw["Persona"] == persona_seleccionada]
+df_filtrado_persona = df_limpio if persona_seleccionada == "Todos" else df_limpio[df_limpio["Persona"] == persona_seleccionada]
 
-# 1. Cajas del día seleccionado
+# 1. Cajas del día seleccionado (Para KPIs del día)
 if fecha_seleccionada is not None:
     df_filtrado_dia = df_filtrado_persona[df_filtrado_persona["Fecha"] == fecha_seleccionada]
     total_cajas_dia = len(df_filtrado_dia)
@@ -228,14 +242,14 @@ else:
     total_cajas_dia = 0
 
 # 2. Cálculo del mes con datos más recientes para la meta mensual (Traducido y dinámico)
-if not df_raw.empty:
-    fecha_base_mes = fecha_seleccionada if fecha_seleccionada is not None else df_raw["Fecha"].max()
+if not df_limpio.empty:
+    fecha_base_mes = fecha_seleccionada if fecha_seleccionada is not None else df_limpio["Fecha"].max()
     mes_actual = fecha_base_mes.month
     anio_actual = fecha_base_mes.year
     
-    df_mes_actual = df_raw[
-        (df_raw["Fecha"].dt.month == mes_actual) & 
-        (df_raw["Fecha"].dt.year == anio_actual)
+    df_mes_actual = df_limpio[
+        (df_limpio["Fecha"].dt.month == mes_actual) & 
+        (df_limpio["Fecha"].dt.year == anio_actual)
     ]
     total_acumulado_mes_actual = len(df_mes_actual)
     
@@ -251,7 +265,7 @@ else:
     nombre_mes_kpi = "MES"
 
 # 3. Avance Global dinámico basado en ID consecutivo más alto
-total_acumulado_proyecto = int(df_raw["Cajas_Identidad_Num"].max()) if not df_raw.empty else 0
+total_acumulado_proyecto = int(df_limpio["Cajas_Identidad_Num"].max()) if not df_limpio.empty else 0
 
 # --- DISEÑO DE INTERFAZ PRINCIPAL ---
 st.markdown("""
@@ -301,7 +315,13 @@ col_graf1, col_graf2 = st.columns([3, 2])
 with col_graf1:
     st.markdown("### 🏆 Ranking de Producción Acumulada por Persona")
     if not df_filtrado_persona.empty:
+        # IMPORTANTE: Agrupa usando 'df_filtrado_persona' entero para mostrar el histórico acumulado sin importar el día lateral seleccionado
         ranking_df = df_filtrado_persona.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
+        
+        # Altura dinámica del gráfico para que la lista crezca con los operarios sin colapsar las barras
+        cant_operarios = len(ranking_df)
+        altura_dinamica = int(max(400, 150 + (cant_operarios * 30)))
+        
         fig_ranking = px.bar(
             ranking_df, 
             x="Cajas_Producidas", 
@@ -310,7 +330,15 @@ with col_graf1:
             color="Cajas_Producidas", 
             color_continuous_scale=["#1A365D", "#2E7D32"]
         )
-        fig_ranking.update_layout(margin=dict(l=20, r=20, t=10, b=20), height=400)
+        # Margen amplio izquierdo (l=200) para garantizar apellidos completos e índice estricto por operario
+        fig_ranking.update_layout(
+            margin=dict(l=200, r=25, t=10, b=20), 
+            height=altura_dinamica,
+            yaxis=dict(
+                autorange="ascending",
+                dtick=1  # Obliga a mostrar cada etiqueta/operario consecutivamente en el eje vertical
+            )
+        )
         st.plotly_chart(fig_ranking, use_container_width=True)
     else:
         st.info("No hay datos disponibles para generar el ranking.")
