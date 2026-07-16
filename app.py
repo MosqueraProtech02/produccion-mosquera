@@ -302,11 +302,6 @@ with col_graf1:
     st.markdown("### 🏆 Ranking de Producción Acumulada por Persona")
     if not df_filtrado_persona.empty:
         ranking_df = df_filtrado_persona.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
-        
-        # Calcular altura dinámica de forma 100% segura (mínimo 450px y 30px adicionales por colaborador)
-        cant_colaboradores = len(ranking_df)
-        altura_calculada = int(max(450, 150 + (cant_colaboradores * 35)))
-        
         fig_ranking = px.bar(
             ranking_df, 
             x="Cajas_Producidas", 
@@ -315,16 +310,7 @@ with col_graf1:
             color="Cajas_Producidas", 
             color_continuous_scale=["#1A365D", "#2E7D32"]
         )
-        
-        # Configurar la visualización del layout con la altura segura y márgenes holgados
-        fig_ranking.update_layout(
-            margin=dict(l=180, r=20, t=10, b=20),
-            height=altura_calculada,
-            yaxis=dict(
-                autorange="ascending",
-                dtick=1  # Fuerza a mostrar obligatoriamente el nombre de cada colaborador
-            )
-        )
+        fig_ranking.update_layout(margin=dict(l=20, r=20, t=10, b=20), height=400)
         st.plotly_chart(fig_ranking, use_container_width=True)
     else:
         st.info("No hay datos disponibles para generar el ranking.")
