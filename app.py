@@ -55,7 +55,7 @@ st.markdown("""
         border-radius: 10px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         text-align: center;
-        border-left: 5px solid #1A365D; /* Azul como color principal de la marca */
+        border-left: 5px solid #1A365D;
     }
     .kpi-title { font-size: 14px; color: #6c757d; font-weight: bold; text-transform: uppercase; }
     .kpi-value { font-size: 28px; font-weight: bold; color: #212529; margin-top: 5px; }
@@ -63,23 +63,19 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- CARGA DE DATOS DESDE GOOGLE SHEETS ---
-@st.cache_data(ttl=10) # ⚡ Reducido a 10 segundos para actualización en tiempo real sin bloqueos
+@st.cache_data(ttl=10)
 def cargar_datos_reales():
     try:
         url = "https://docs.google.com/spreadsheets/d/1ld0sxAyU9mYhQ69yv6w2d4sWhK8QW4E0XZlz4hYMhfA/export?format=csv&gid=990786706"
         df = pd.read_csv(url)
         
-        # Guardamos copia del encabezado original para depurar si es necesario
-        columnas_originales = list(df.columns)
-        
-        # Limpieza básica de nombres de columnas para facilitar la coincidencia
+        # Limpieza uniforme de nombres de columnas
         df.columns = [col.strip().lower().replace('á','a').replace('é','e').replace('í','i').replace('ó','o').replace('ú','u') for col in df.columns]
         
-        # Mapeo inteligente con prioridades corregidas y estrictas
+        # Mapeo inteligente con prioridades corregidas
         col_fecha = None
         for c in df.columns:
-            # Buscamos coincidencia exacta o palabras que definan el tiempo, evitando colisiones
-            if c == 'fecha' or c == 'dia':
+            if c in ['fecha', 'dia']:
                 col_fecha = c
                 break
         if not col_fecha:
@@ -92,12 +88,12 @@ def cargar_datos_reales():
         
         col_persona = None
         for c in df.columns:
-            if c == 'persona' or c == 'operario':
+            if c in ['persona', 'operario']:
                 col_persona = c
                 break
         if not col_persona:
             for c in df.columns:
-                if 'persona' in c or 'operario' in c or 'nombre' in c or 'usuario' in c or 'empleado' in c:
+                if any(x in c for x in ['persona', 'operario', 'nombre', 'usuario', 'empleado']):
                     col_persona = c
                     break
         if not col_persona: 
@@ -105,72 +101,71 @@ def cargar_datos_reales():
         
         col_cajas = None
         for c in df.columns:
-            if 'cajas_identidad' in c or 'caja_identidad' in c or 'identidad' in c:
+            if any(x in c for x in ['cajas_identidad', 'caja_identidad', 'identidad']):
                 col_cajas = c
                 break
         if not col_cajas:
             for c in df.columns:
-                if 'caja' in c or 'produc' in c or 'rendi' in c or 'total' in c or 'cant' in c:
+                if any(x in c for x in ['caja', 'produc', 'rendi', 'total', 'cant']):
                     col_cajas = c
                     break
         if not col_cajas: 
             col_cajas = df.columns[2]
         
-        # Renombrar columnas para estandarizarlas asegurándonos de que no haya colisiones
+        # Renombrar columnas de forma segura
         df = df.rename(columns={col_fecha: "Fecha", col_persona: "Persona", col_cajas: "Cajas_Identidad"})
         
-        # Conversión y limpieza de tipos
+        # Conversión y sanitización estricta de tipos
         df["Fecha"] = pd.to_datetime(df["Fecha"], errors='coerce')
         df["Persona"] = df["Persona"].astype(str).str.strip().fillna("No Asignado")
         
-        # 📌 AJUSTE CLAVE: Extraer solo los números de la columna de cajas y guardarlos como enteros
+        # Extraer números de manera segura previniendo errores de conversión
         df["Cajas_Identidad_Num"] = df["Cajas_Identidad"].astype(str).str.extract(r'(\d+)').astype(float).fillna(0).astype(int)
         
-        # Filtrar únicamente filas donde la Fecha sea totalmente nula
+        # Eliminar filas donde la Fecha sea inválida o nula
         df = df.dropna(subset=["Fecha"])
-        return df
+        return df.sort_values(by="Fecha")
     except Exception as e:
-        st.sidebar.error(f"❌ Error de Conexión. Detalle: {str(e)}")
-        # Base de datos simulada de respaldo
+        st.sidebar.error(f"❌ Error al mapear Hoja Principal: {str(e)}")
+        # Datos simulados de respaldo estructurados idénticamente
         np.random.seed(42)
-        personas = ["Yamith Marín", "Operario de Prueba A", "Operario de Prueba B"]
-        fechas = pd.date_range(start="2026-05-01", end="2026-05-05", freq="D")
+        personas = ["Yamith Marín", "Andres Felipe Riveros", "Adriana Patricia Riano Medina"]
+        fechas = pd.date_range(start="2026-05-01", end="2026-05-10", freq="D")
         records = []
         for i, fecha in enumerate(fechas):
             for persona in personas:
-                records.append({"Fecha": fecha, "Persona": persona, "Cajas_Identidad": f"Caja {3300 + i}"})
+                records.append({"Fecha": fecha, "Persona": persona, "Cajas_Identidad": f"Caja {3300 + (i * 10)}"})
         df_backup = pd.DataFrame(records)
         df_backup["Cajas_Identidad_Num"] = df_backup["Cajas_Identidad"].astype(str).str.extract(r'(\d+)').astype(float).fillna(0).astype(int)
         return df_backup
 
-# --- CARGA DE LA NUEVA PESTAÑA 'Estados' ---
-@st.cache_data(ttl=10) # ⚡ Sincronizado a 10 segundos
+@st.cache_data(ttl=10)
 def cargar_datos_estados():
     try:
-        # Usamos gviz/tq para apuntar directamente a la pestaña "Estados" de manera robusta
         url_estados = "https://docs.google.com/spreadsheets/d/1ld0sxAyU9mYhQ69yv6w2d4sWhK8QW4E0XZlz4hYMhfA/gviz/tq?tqx=out:csv&sheet=Estados"
         df_est = pd.read_csv(url_estados)
         
-        # Limpiar nombres de columnas y quitar vacíos
         df_est.columns = [col.strip() for col in df_est.columns]
         df_est = df_est.dropna(subset=["Fecha"]).copy()
         
         df_est["Fecha"] = pd.to_datetime(df_est["Fecha"], errors='coerce')
-        df_est["TRD"] = pd.to_numeric(df_est["TRD"], errors='coerce').fillna(0).astype(int)
-        df_est["TP"] = pd.to_numeric(df_est["TP"], errors='coerce').fillna(0).astype(int)
-        df_est["VIG"] = pd.to_numeric(df_est["VIG"], errors='coerce').fillna(0).astype(int)
-        df_est["FA"] = pd.to_numeric(df_est["FA"], errors='coerce').fillna(0).astype(int)
+        for col in ["TRD", "TP", "VIG", "FA"]:
+            if col in df_est.columns:
+                df_est[col] = pd.to_numeric(df_est[col], errors='coerce').fillna(0).astype(int)
+            else:
+                df_est[col] = 0
         
-        # Filtrar registros sin fecha válida y ordenar cronológicamente
-        df_est = df_est.dropna(subset=["Fecha"]).sort_values(by="Fecha")
-        return df_est
+        return df_est.dropna(subset=["Fecha"]).sort_values(by="Fecha")
     except Exception as e:
+        st.sidebar.error(f"❌ Error al mapear Hoja Estados: {str(e)}")
+        # Estructura vacía resiliente para evitar romper el flujo visual
         return pd.DataFrame(columns=["Fecha", "TRD", "TP", "VIG", "FA"])
 
+# --- CARGA INICIAL ---
 df_raw = cargar_datos_reales()
 df_estados_raw = cargar_datos_estados()
 
-# --- CONSTANTES ---
+# --- CONSTANTES DE METAS ---
 META_DIARIA_INDIVIDUAL = 3
 META_MENSUAL_EQUIPO = 2400
 META_GLOBAL_PROYECTO = 36099
@@ -180,68 +175,56 @@ st.sidebar.image("https://cdn-icons-png.flaticon.com/512/771/771239.png", width=
 st.sidebar.title("Panel de Control")
 st.sidebar.markdown("Datos del archivo de Google Sheets.")
 
-# Identificar las columnas reales que se le asignaron internamente a cada variable para validación visual
-col_fecha_detectada = df_raw.select_dtypes(include=[np.datetime64, 'datetime64[ns]']).columns[0] if not df_raw.empty else "No detectado"
-st.sidebar.info(f"Columnas detectadas en tu hoja:\n- Fecha: `Fecha` (Mapeada correctamente)\n- Operario: `Persona` (Mapeada correctamente)\n- Identidad Caja: `Cajas_Identidad` (Mapeada correctamente)")
+st.sidebar.info("Columnas detectadas en tu hoja:\n- Fecha: `Fecha` \n- Operario: `Persona` \n- Identidad Caja: `Cajas_Identidad`")
 
-if st.sidebar.button("🔄 Sincronizar Google Sheets"):
+if st.sidebar.button("🔄 Sincronizar Google Sheets", key="sync_btn"):
     st.cache_data.clear()
     st.rerun()
 
+# selectores dinámicos
 lista_personas = ["Todos"] + sorted(list(df_raw["Persona"].unique()))
 persona_seleccionada = st.sidebar.selectbox("Seleccionar Operario:", lista_personas)
 
-# Mostrar fechas ordenadas cronológicamente en formato legible 'YYYY-MM-DD'
 fechas_disponibles_dt = sorted(list(df_raw["Fecha"].unique()))
-fechas_disponibles_str = [f.strftime('%Y-%m-%d') for f in fechas_disponibles_dt]
+fechas_disponibles_str = [pd.to_datetime(f).strftime('%Y-%m-%d') for f in fechas_disponibles_dt]
 
-if len(fechas_disponibles_str) > 0:
+if fechas_disponibles_str:
     fecha_seleccionada_str = st.sidebar.selectbox("Seleccionar Día Específico:", fechas_disponibles_str)
     fecha_seleccionada = pd.to_datetime(fecha_seleccionada_str)
 else:
     fecha_seleccionada = None
 
-# Filtrado por Operario
+# --- FILTRADO DE DATOS ---
 df_filtrado_persona = df_raw if persona_seleccionada == "Todos" else df_raw[df_raw["Persona"] == persona_seleccionada]
 
-# --- NUEVOS CÁLCULOS (MODIFICADOS PARA SEGUIMIENTO POR COLUMNA CAJA) ---
-
-# 1. Producción del Día Seleccionado (Sigue basándose en registros ingresados ese día)
-if fecha_seleccionada:
+# 1. Cajas del día seleccionado
+if fecha_seleccionada is not None:
     df_filtrado_dia = df_filtrado_persona[df_filtrado_persona["Fecha"] == fecha_seleccionada]
     total_cajas_dia = len(df_filtrado_dia)
 else:
+    df_filtrado_dia = pd.DataFrame()
     total_cajas_dia = 0
 
-# 2. Obtener año y mes actual para la Meta Mensual
-hoy = datetime.date.today()
-mes_actual = hoy.month
-anio_actual = hoy.year
-
-# Contamos los registros del mes actual
-df_mes_actual = df_raw[
-    (df_raw["Fecha"].dt.month == mes_actual) & 
-    (df_raw["Fecha"].dt.year == anio_actual)
-]
-total_acumulado_mes_actual = len(df_mes_actual)
-
-# Si el mes actual aún no tiene registros, tomamos el último mes con datos
-if total_acumulado_mes_actual == 0 and len(df_raw) > 0:
-    ultimo_registro_fecha = df_raw["Fecha"].max()
+# 2. Cálculo del mes con datos más recientes para la meta mensual
+if not df_raw.empty:
+    ultima_fecha_datos = df_raw["Fecha"].max()
+    mes_actual = ultima_fecha_datos.month
+    anio_actual = ultima_fecha_datos.year
+    
     df_mes_actual = df_raw[
-        (df_raw["Fecha"].dt.month == ultimo_registro_fecha.month) & 
-        (df_raw["Fecha"].dt.year == ultimo_registro_fecha.year)
+        (df_raw["Fecha"].dt.month == mes_actual) & 
+        (df_raw["Fecha"].dt.year == anio_actual)
     ]
     total_acumulado_mes_actual = len(df_mes_actual)
-
-# 3. 🎯 AJUSTE DE AVANCE GLOBAL DINÁMICO:
-# Tomamos el valor de caja más alto ingresado en la columna "Cajas_Identidad_Num"
-if not df_raw.empty:
-    total_acumulado_proyecto = int(df_raw["Cajas_Identidad_Num"].max())
+    nombre_mes_kpi = ultima_fecha_datos.strftime('%B').capitalize()
 else:
-    total_acumulado_proyecto = 0
+    total_acumulado_mes_actual = 0
+    nombre_mes_kpi = "Mes"
 
-# --- DISEÑO DE INTERFAZ ---
+# 3. Avance Global dinámico basado en ID consecutivo más alto
+total_acumulado_proyecto = int(df_raw["Cajas_Identidad_Num"].max()) if not df_raw.empty else 0
+
+# --- DISEÑO DE INTERFAZ PRINCIPAL ---
 st.markdown("""
     <div class="header-container">
         <div class="logo-text">
@@ -255,139 +238,117 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 col1, col2, col3, col4 = st.columns(4)
+
 with col1:
     fecha_str = fecha_seleccionada.strftime('%Y-%m-%d') if fecha_seleccionada else ""
-    html_kpi1 = '<div class="kpi-card" style="border-left-color: #1A365D;"><div class="kpi-title">Producción del Día ({fecha})</div><div class="kpi-value">{valor} Cajas</div></div>'.format(fecha=fecha_str, valor=total_cajas_dia)
-    st.markdown(html_kpi1, unsafe_allow_html=True)
+    st.markdown(f'<div class="kpi-card"><div class="kpi-title">Producción del Día ({fecha_str})</div><div class="kpi-value">{total_cajas_dia} Cajas</div></div>', unsafe_allow_html=True)
+
 with col2:
     avance_mensual = (total_acumulado_mes_actual / META_MENSUAL_EQUIPO) * 100 if META_MENSUAL_EQUIPO > 0 else 0
-    html_kpi2 = '<div class="kpi-card" style="border-left-color: #2E7D32;"><div class="kpi-title">Avance Meta Mensual</div><div class="kpi-value">{porcentaje:.1f}%</div></div>'.format(porcentaje=avance_mensual)
-    st.markdown(html_kpi2, unsafe_allow_html=True)
+    st.markdown(f'<div class="kpi-card" style="border-left-color: #2E7D32;"><div class="kpi-title">Avance Meta Mensual ({nombre_mes_kpi})</div><div class="kpi-value">{avance_mensual:.1f}%</div></div>', unsafe_allow_html=True)
+
 with col3:
-    # 🎯 Mostramos el avance global utilizando el número de caja real más alto
     avance_global = (total_acumulado_proyecto / META_GLOBAL_PROYECTO) * 100 if META_GLOBAL_PROYECTO > 0 else 0
-    html_kpi3 = """
-    <div class="kpi-card" style="border-left-color: #1A365D;">
+    st.markdown(f"""
+    <div class="kpi-card">
         <div class="kpi-title">Avance Global Real</div>
-        <div class="kpi-value">{porcentaje:.2f}%</div>
-        <div style="font-size: 11px; color: #6C757D; margin-top: 5px;">
-            (Caja {acumulado:,} de {meta:,} Cajas)
-        </div>
+        <div class="kpi-value">{avance_global:.2f}%</div>
+        <div style="font-size: 11px; color: #6C757D; margin-top: 5px;">(Caja {total_acumulado_proyecto:,} de {META_GLOBAL_PROYECTO:,})</div>
     </div>
-    """.format(porcentaje=avance_global, acumulado=total_acumulado_proyecto, meta=META_GLOBAL_PROYECTO)
-    st.markdown(html_kpi3, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+
 with col4:
-    if fecha_seleccionada:
+    if not df_filtrado_dia.empty:
         conteo_diario_personas = df_filtrado_dia.groupby("Persona").size().reset_index(name="Cajas")
-        bajos_rendimientos = conteo_diario_personas[conteo_diario_personas["Cajas"] < META_DIARIA_INDIVIDUAL]
-        num_criticos = len(bajos_rendimientos)
+        num_criticos = len(conteo_diario_personas[conteo_diario_personas["Cajas"] < META_DIARIA_INDIVIDUAL])
     else:
         num_criticos = 0
-    html_kpi4 = '<div class="kpi-card" style="border-left-color: #EF553B;"><div class="kpi-title">Alertas Bajo Rendimiento</div><div class="kpi-value" style="color: #EF553B;">{criticos} Pers.</div></div>'.format(criticos=num_criticos)
-    st.markdown(html_kpi4, unsafe_allow_html=True)
+    st.markdown(f'<div class="kpi-card" style="border-left-color: #EF553B;"><div class="kpi-title">Alertas Bajo Rendimiento</div><div class="kpi-value" style="color: #EF553B;">{num_criticos} Pers.</div></div>', unsafe_allow_html=True)
 
-# --- GRÁFICOS ---
+# --- SECCIÓN DE GRÁFICOS DE RENDIMIENTO ---
 st.markdown("<br>", unsafe_allow_html=True)
 col_graf1, col_graf2 = st.columns([3, 2])
 
 with col_graf1:
     st.markdown("### 🏆 Ranking de Producción Acumulada por Persona")
-    ranking_df = df_filtrado_persona.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
-    fig_ranking = px.bar(
-        ranking_df, 
-        x="Cajas_Producidas", 
-        y="Persona", 
-        orientation="h", 
-        color="Cajas_Producidas", 
-        color_continuous_scale=["#1A365D", "#2E7D32"]
-    )
-    st.plotly_chart(fig_ranking, use_container_width=True)
+    if not df_filtrado_persona.empty:
+        ranking_df = df_filtrado_persona.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
+        fig_ranking = px.bar(
+            ranking_df, 
+            x="Cajas_Producidas", 
+            y="Persona", 
+            orientation="h", 
+            color="Cajas_Producidas", 
+            color_continuous_scale=["#1A365D", "#2E7D32"]
+        )
+        fig_ranking.update_layout(margin=dict(l=20, r=20, t=10, b=20), height=400)
+        st.plotly_chart(fig_ranking, use_container_width=True)
+    else:
+        st.info("No hay datos disponibles para generar el ranking.")
 
 with col_graf2:
     st.markdown("### 🎯 Progreso de Metas e Historial")
-    df_progreso_sorted = df_filtrado_persona.sort_values(by="Fecha")
-    
-    evolucion_diaria = df_progreso_sorted.groupby(df_progreso_sorted["Fecha"].dt.date).size().reset_index(name="Cajas_Por_Dia")
-    evolucion_diaria["Fecha"] = pd.to_datetime(evolucion_diaria["Fecha"])
-    evolucion_diaria = evolucion_diaria.sort_values(by="Fecha")
-    
-    evolucion_diaria["Cajas_Acumuladas"] = evolucion_diaria["Cajas_Por_Dia"].cumsum()
-    
-    fig_lineas = px.line(
-        evolucion_diaria, 
-        x="Fecha", 
-        y="Cajas_Acumuladas", 
-        markers=True,
-        labels={"Cajas_Acumuladas": "Cajas Acumuladas"},
-        color_discrete_sequence=["#1A365D"]
-    )
-    
-    fig_lineas.update_layout(
-        xaxis=dict(
-            type='date',
-            tickformat='%Y-%m-%d'
-        ),
-        margin=dict(l=20, r=20, t=10, b=20)
-    )
-    st.plotly_chart(fig_lineas, use_container_width=True)
+    if not df_filtrado_persona.empty:
+        evolucion_diaria = df_filtrado_persona.groupby(df_filtrado_persona["Fecha"].dt.date).size().reset_index(name="Cajas_Por_Dia")
+        evolucion_diaria["Fecha"] = pd.to_datetime(evolucion_diaria["Fecha"])
+        evolucion_diaria = evolucion_diaria.sort_values(by="Fecha")
+        evolucion_diaria["Cajas_Acumuladas"] = evolucion_diaria["Cajas_Por_Dia"].cumsum()
+        
+        fig_lineas = px.line(
+            evolucion_diaria, 
+            x="Fecha", 
+            y="Cajas_Acumuladas", 
+            markers=True,
+            color_discrete_sequence=["#1A365D"]
+        )
+        fig_lineas.update_layout(
+            xaxis=dict(type='date', tickformat='%Y-%m-%d'),
+            margin=dict(l=20, r=20, t=10, b=20),
+            height=400
+        )
+        st.plotly_chart(fig_lineas, use_container_width=True)
+    else:
+        st.info("No hay datos históricos disponibles.")
 
-# ==============================================================================
-# INTEGRACIÓN: 📊 CONSOLIDADO ESTADOS
-# ==============================================================================
+# --- SECCIÓN CONSOLIDADO ESTADOS ---
 st.markdown("---")
 st.header("📊 Consolidado Estados")
 st.subheader("Avance Diario e Histórico Consecutivo")
 
-try:
-    if not df_estados_raw.empty:
-        df_estados_sorted = df_estados_raw.copy()
-        df_estados_sorted["Fecha"] = pd.to_datetime(df_estados_sorted["Fecha"])
-        df_estados_sorted = df_estados_sorted.sort_values(by="Fecha")
+if not df_estados_raw.empty:
+    df_estados_sorted = df_estados_raw.sort_values(by="Fecha")
+    ultimo_registro = df_estados_sorted.iloc[-1]
+    fecha_reciente = pd.to_datetime(ultimo_registro['Fecha']).strftime('%Y-%m-%d')
+    
+    st.markdown(f"##### 📅 Último Estado Reportado en Sheets: **{fecha_reciente}**")
+    
+    me1, me2, me3, me4 = st.columns(4)
+    with me1: st.metric(label="TRD", value=f"{int(ultimo_registro['TRD'])}")
+    with me2: st.metric(label="TP", value=f"{int(ultimo_registro['TP'])}")
+    with me3: st.metric(label="VIG", value=f"{int(ultimo_registro['VIG'])}")
+    with me4: st.metric(label="FA", value=f"{int(ultimo_registro['FA'])}")
         
-        ultimo_registro = df_estados_sorted.iloc[-1]
-        fecha_reciente = ultimo_registro['Fecha'].strftime('%Y-%m-%d')
-        
-        st.markdown(f"##### 📅 Estado del día reportado en Sheets: **{fecha_reciente}**")
-        
-        me1, me2, me3, me4 = st.columns(4)
-        with me1:
-            st.metric(label="TRD", value=f"{int(ultimo_registro['TRD'])}")
-        with me2:
-            st.metric(label="TP", value=f"{int(ultimo_registro['TP'])}")
-        with me3:
-            st.metric(label="VIG", value=f"{int(ultimo_registro['VIG'])}")
-        with me4:
-            st.metric(label="FA", value=f"{int(ultimo_registro['FA'])}")
-            
-        st.markdown("#### 📈 Comportamiento y Evolución Diaria de los Estados")
-        
-        fig_estados = px.line(
-            df_estados_sorted, 
-            x="Fecha", 
-            y=["TRD", "TP", "VIG", "FA"],
-            labels={"value": "Cantidad", "Fecha": "Fecha", "variable": "Estado"},
-            markers=True,
-            color_discrete_sequence=["#1A365D", "#2E7D32", "#FF9800", "#E91E63"]
-        )
-        
-        fig_estados.update_layout(
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            margin=dict(l=20, r=20, t=10, b=20),
-            xaxis=dict(
-                type='date',
-                tickformat='%Y-%m-%d'
-            )
-        )
-        
-        st.plotly_chart(fig_estados, use_container_width=True)
-        
-        with st.expander("🔍 Ver historial de registros diarios"):
-            df_tabla_ver = df_estados_sorted.copy()
-            df_tabla_ver["Fecha"] = df_tabla_ver["Fecha"].dt.strftime('%Y-%m-%d')
-            st.dataframe(df_tabla_ver, use_container_width=True, hide_index=True)
-            
-    else:
-        st.warning("⚠️ No se encontraron datos en la pestaña 'Estados' de tu Google Sheets.")
-
-except Exception as e:
-    st.error(f"⚠️ Ocurrió un error al procesar el Consolidado de Estados: {e}")
+    st.markdown("#### 📈 Comportamiento y Evolución Diaria de los Estados")
+    
+    fig_estados = px.line(
+        df_estados_sorted, 
+        x="Fecha", 
+        y=["TRD", "TP", "VIG", "FA"],
+        labels={"value": "Cantidad", "Fecha": "Fecha", "variable": "Estado"},
+        markers=True,
+        color_discrete_sequence=["#1A365D", "#2E7D32", "#FF9800", "#E91E63"]
+    )
+    
+    fig_estados.update_layout(
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(l=20, r=20, t=10, b=20),
+        xaxis=dict(type='date', tickformat='%Y-%m-%d')
+    )
+    st.plotly_chart(fig_estados, use_container_width=True)
+    
+    with st.expander("🔍 Ver historial de registros diarios (Tabla)"):
+        df_tabla_ver = df_estados_sorted.copy()
+        df_tabla_ver["Fecha"] = df_tabla_ver["Fecha"].dt.strftime('%Y-%m-%d')
+        st.dataframe(df_tabla_ver, use_container_width=True, hide_index=True)
+else:
+    st.warning("⚠️ No se pudieron recuperar datos en la pestaña 'Estados' de tu Google Sheets.")
