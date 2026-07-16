@@ -305,64 +305,62 @@ with col4:
         num_criticos = 0
     st.markdown(f'<div class="kpi-card" style="border-left-color: #EF553B;"><div class="kpi-title">Alertas Bajo Rendimiento</div><div class="kpi-value" style="color: #EF553B;">{num_criticos} Pers.</div></div>', unsafe_allow_html=True)
 
-# --- SECCIÓN DE GRÁFICOS DE RENDIMIENTO ---
+# --- SECCIÓN DE GRÁFICOS DE RENDIMIENTO (DISEÑO EN UNA COLUMNA) ---
 st.markdown("<br>", unsafe_allow_html=True)
-col_graf1, col_graf2 = st.columns([3, 2])
 
-with col_graf1:
-    st.markdown("### 🏆 Ranking de Producción Acumulada por Persona")
-    if not df_filtrado_persona.empty:
-        # Agrupa usando el acumulado histórico (ignora la fecha)
-        ranking_df = df_filtrado_persona.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
-        
-        cant_operarios = len(ranking_df)
-        altura_dinamica = int(max(400, 150 + (cant_operarios * 30)))
-        
-        fig_ranking = px.bar(
-            ranking_df, 
-            x="Cajas_Producidas", 
-            y="Persona", 
-            orientation="h", 
-            color="Cajas_Producidas", 
-            color_continuous_scale=["#1A365D", "#2E7D32"]
-        )
-        
-        # Configuración segura del gráfico
-        fig_ranking.update_layout(
-            margin=dict(l=200, r=25, t=10, b=20), 
-            height=altura_dinamica
-        )
-        # Configuración limpia del eje vertical (Se eliminó el autorange='ascending' que causaba el error)
-        fig_ranking.update_yaxes(
-            type='category'
-        )
-        st.plotly_chart(fig_ranking, use_container_width=True)
-    else:
-        st.info("No hay datos disponibles para generar el ranking.")
+# 1. Ranking de Producción (Sección Superior)
+st.markdown("### 🏆 Ranking de Producción Acumulada por Persona")
+if not df_filtrado_persona.empty:
+    ranking_df = df_filtrado_persona.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
+    
+    cant_operarios = len(ranking_df)
+    altura_dinamica = int(max(400, 150 + (cant_operarios * 30)))
+    
+    fig_ranking = px.bar(
+        ranking_df, 
+        x="Cajas_Producidas", 
+        y="Persona", 
+        orientation="h", 
+        color="Cajas_Producidas", 
+        color_continuous_scale=["#1A365D", "#2E7D32"]
+    )
+    
+    fig_ranking.update_layout(
+        margin=dict(l=200, r=25, t=10, b=20), 
+        height=altura_dinamica
+    )
+    fig_ranking.update_yaxes(
+        type='category'
+    )
+    st.plotly_chart(fig_ranking, use_container_width=True)
+else:
+    st.info("No hay datos disponibles para generar el ranking.")
 
-with col_graf2:
-    st.markdown("### 🎯 Progreso de Metas e Historial")
-    if not df_filtrado_persona.empty:
-        evolucion_diaria = df_filtrado_persona.groupby(df_filtrado_persona["Fecha"].dt.date).size().reset_index(name="Cajas_Por_Dia")
-        evolucion_diaria["Fecha"] = pd.to_datetime(evolucion_diaria["Fecha"])
-        evolucion_diaria = evolucion_diaria.sort_values(by="Fecha")
-        evolucion_diaria["Cajas_Acumuladas"] = evolucion_diaria["Cajas_Por_Dia"].cumsum()
-        
-        fig_lineas = px.line(
-            evolucion_diaria, 
-            x="Fecha", 
-            y="Cajas_Acumuladas", 
-            markers=True,
-            color_discrete_sequence=["#1A365D"]
-        )
-        fig_lineas.update_layout(
-            xaxis=dict(type='date', tickformat='%Y-%m-%d'),
-            margin=dict(l=20, r=20, t=10, b=20),
-            height=400
-        )
-        st.plotly_chart(fig_lineas, use_container_width=True)
-    else:
-        st.info("No hay datos históricos disponibles.")
+st.markdown("<br>", unsafe_allow_html=True)
+
+# 2. Progreso de Metas e Historial (Sección Inferior)
+st.markdown("### 🎯 Progreso de Metas e Historial")
+if not df_filtrado_persona.empty:
+    evolucion_diaria = df_filtrado_persona.groupby(df_filtrado_persona["Fecha"].dt.date).size().reset_index(name="Cajas_Por_Dia")
+    evolucion_diaria["Fecha"] = pd.to_datetime(evolucion_diaria["Fecha"])
+    evolucion_diaria = evolucion_diaria.sort_values(by="Fecha")
+    evolucion_diaria["Cajas_Acumuladas"] = evolucion_diaria["Cajas_Por_Dia"].cumsum()
+    
+    fig_lineas = px.line(
+        evolucion_diaria, 
+        x="Fecha", 
+        y="Cajas_Acumuladas", 
+        markers=True,
+        color_discrete_sequence=["#1A365D"]
+    )
+    fig_lineas.update_layout(
+        xaxis=dict(type='date', tickformat='%Y-%m-%d'),
+        margin=dict(l=40, r=40, t=10, b=20),  # Márgenes optimizados para ancho completo
+        height=400
+    )
+    st.plotly_chart(fig_lineas, use_container_width=True)
+else:
+    st.info("No hay datos históricos disponibles.")
 
 # --- SECCIÓN CONSOLIDADO ESTADOS ---
 st.markdown("---")
