@@ -115,8 +115,8 @@ def cargar_datos_reales():
         # Renombrar columnas de forma segura
         df = df.rename(columns={col_fecha: "Fecha", col_persona: "Persona", col_cajas: "Cajas_Identidad"})
         
-        # Conversión y sanitización estricta de tipos
-        df["Fecha"] = pd.to_datetime(df["Fecha"], errors='coerce')
+        # 1. Interpretación de fecha estricta (Prioriza formato DD/MM/AAAA)
+        df["Fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True, errors='coerce')
         df["Persona"] = df["Persona"].astype(str).str.strip().fillna("No Asignado")
         
         # Extraer números de manera segura previniendo errores de conversión
@@ -124,6 +124,11 @@ def cargar_datos_reales():
         
         # Eliminar filas donde la Fecha sea inválida o nula
         df = df.dropna(subset=["Fecha"])
+        
+        # 2. Filtro de seguridad dinámico contra fechas futuras accidentales
+        hoy = pd.Timestamp.now().normalize()
+        df = df[df["Fecha"] <= hoy]
+        
         return df.sort_values(by="Fecha")
     except Exception as e:
         st.sidebar.error(f"❌ Error al mapear Hoja Principal: {str(e)}")
@@ -148,7 +153,13 @@ def cargar_datos_estados():
         df_est.columns = [col.strip() for col in df_est.columns]
         df_est = df_est.dropna(subset=["Fecha"]).copy()
         
-        df_est["Fecha"] = pd.to_datetime(df_est["Fecha"], errors='coerce')
+        # 1. Interpretación de fecha estricta (Prioriza formato DD/MM/AAAA)
+        df_est["Fecha"] = pd.to_datetime(df_est["Fecha"], dayfirst=True, errors='coerce')
+        
+        # 2. Filtro de seguridad dinámico contra fechas futuras accidentales
+        hoy = pd.Timestamp.now().normalize()
+        df_est = df_est[df_est["Fecha"] <= hoy]
+        
         for col in ["TRD", "TP", "VIG", "FA"]:
             if col in df_est.columns:
                 df_est[col] = pd.to_numeric(df_est[col], errors='coerce').fillna(0).astype(int)
@@ -189,10 +200,9 @@ fechas_disponibles_dt = sorted(list(df_raw["Fecha"].unique()))
 fechas_disponibles_str = [pd.to_datetime(f).strftime('%Y-%m-%d') for f in fechas_disponibles_dt]
 
 if fechas_disponibles_str:
-    # NUEVA MEJORA: Buscar la última fecha de los datos para usarla como índice por defecto
+    # 3. Posicionar el selector por defecto en el día real con datos más recientes
     ultima_fecha_str = pd.to_datetime(df_raw["Fecha"].max()).strftime('%Y-%m-%d')
     try:
-        # Buscamos en qué posición de la lista está la fecha más reciente para que Streamlit se sitúe ahí al iniciar
         index_defecto = fechas_disponibles_str.index(ultima_fecha_str)
     except ValueError:
         index_defecto = len(fechas_disponibles_str) - 1
@@ -200,7 +210,7 @@ if fechas_disponibles_str:
     fecha_seleccionada_str = st.sidebar.selectbox(
         "Seleccionar Día Específico:", 
         fechas_disponibles_str,
-        index=index_defecto  # El selector ahora se abre por defecto en el día más reciente con datos
+        index=index_defecto  
     )
     fecha_seleccionada = pd.to_datetime(fecha_seleccionada_str)
 else:
@@ -219,8 +229,6 @@ else:
 
 # 2. Cálculo del mes con datos más recientes para la meta mensual (Traducido y dinámico)
 if not df_raw.empty:
-    # Si hay una fecha seleccionada por el usuario, calculamos el avance mensual en base a ese mes seleccionado.
-    # Si no, tomamos la fecha más reciente de los datos.
     fecha_base_mes = fecha_seleccionada if fecha_seleccionada is not None else df_raw["Fecha"].max()
     mes_actual = fecha_base_mes.month
     anio_actual = fecha_base_mes.year
