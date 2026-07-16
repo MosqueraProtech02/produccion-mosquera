@@ -115,7 +115,7 @@ def cargar_datos_reales():
         # Renombrar columnas de forma segura
         df = df.rename(columns={col_fecha: "Fecha", col_persona: "Persona", col_cajas: "Cajas_Identidad"})
         
-        # Interpretación de fecha estricta (Prioriza formato DD/MM/AAAA)
+        # 1. Interpretación de fecha estricta (Prioriza formato DD/MM/AAAA)
         df["Fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True, errors='coerce')
         df["Persona"] = df["Persona"].astype(str).str.strip().fillna("No Asignado")
         
@@ -125,7 +125,7 @@ def cargar_datos_reales():
         # Eliminar filas donde la Fecha sea inválida o nula
         df = df.dropna(subset=["Fecha"])
         
-        # Filtro de seguridad dinámico contra fechas futuras accidentales
+        # 2. Filtro de seguridad dinámico contra fechas futuras accidentales
         hoy = pd.Timestamp.now().normalize()
         df = df[df["Fecha"] <= hoy]
         
@@ -153,10 +153,10 @@ def cargar_datos_estados():
         df_est.columns = [col.strip() for col in df_est.columns]
         df_est = df_est.dropna(subset=["Fecha"]).copy()
         
-        # Interpretación de fecha estricta (Prioriza formato DD/MM/AAAA)
+        # 1. Interpretación de fecha estricta (Prioriza formato DD/MM/AAAA)
         df_est["Fecha"] = pd.to_datetime(df_est["Fecha"], dayfirst=True, errors='coerce')
         
-        # Filtro de seguridad dinámico contra fechas futuras accidentales
+        # 2. Filtro de seguridad dinámico contra fechas futuras accidentales
         hoy = pd.Timestamp.now().normalize()
         df_est = df_est[df_est["Fecha"] <= hoy]
         
@@ -169,6 +169,7 @@ def cargar_datos_estados():
         return df_est.dropna(subset=["Fecha"]).sort_values(by="Fecha")
     except Exception as e:
         st.sidebar.error(f"❌ Error al mapear Hoja Estados: {str(e)}")
+        # Estructura vacía resiliente para evitar romper el flujo visual
         return pd.DataFrame(columns=["Fecha", "TRD", "TP", "VIG", "FA"])
 
 # --- CARGA INICIAL ---
@@ -199,7 +200,7 @@ fechas_disponibles_dt = sorted(list(df_raw["Fecha"].unique()))
 fechas_disponibles_str = [pd.to_datetime(f).strftime('%Y-%m-%d') for f in fechas_disponibles_dt]
 
 if fechas_disponibles_str:
-    # Posicionar el selector por defecto en el día real con datos más recientes
+    # 3. Posicionar el selector por defecto en el día real con datos más recientes
     ultima_fecha_str = pd.to_datetime(df_raw["Fecha"].max()).strftime('%Y-%m-%d')
     try:
         index_defecto = fechas_disponibles_str.index(ultima_fecha_str)
@@ -300,12 +301,11 @@ col_graf1, col_graf2 = st.columns([3, 2])
 with col_graf1:
     st.markdown("### 🏆 Ranking de Producción Acumulada por Persona")
     if not df_filtrado_persona.empty:
-        # Agrupar por persona para contar cajas
         ranking_df = df_filtrado_persona.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
         
-        # Calcular altura: Base de 400px + 30px por cada colaborador para dar un espacio decente
+        # Calcular altura dinámica de forma 100% segura (mínimo 450px y 30px adicionales por colaborador)
         cant_colaboradores = len(ranking_df)
-        altura_final = 400 + (cant_colaboradores * 30)
+        altura_calculada = int(max(450, 150 + (cant_colaboradores * 35)))
         
         fig_ranking = px.bar(
             ranking_df, 
@@ -316,13 +316,13 @@ with col_graf1:
             color_continuous_scale=["#1A365D", "#2E7D32"]
         )
         
-        # Ajustamos el layout sin que interfiera con la creación del objeto de Plotly Express
+        # Configurar la visualización del layout con la altura segura y márgenes holgados
         fig_ranking.update_layout(
-            height=altura_final,
-            margin=dict(l=220, r=30, t=30, b=30),  # Margen izquierdo amplio para nombres largos
+            margin=dict(l=180, r=20, t=10, b=20),
+            height=altura_calculada,
             yaxis=dict(
                 autorange="ascending",
-                dtick=1  # Asegura que muestre cada etiqueta sin saltarse nombres
+                dtick=1  # Fuerza a mostrar obligatoriamente el nombre de cada colaborador
             )
         )
         st.plotly_chart(fig_ranking, use_container_width=True)
