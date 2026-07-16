@@ -322,11 +322,18 @@ if not df_filtrado_persona.empty:
         y="Persona", 
         orientation="h", 
         color="Cajas_Producidas", 
+        text="Cajas_Producidas",  # <--- Asocia el valor a cada barra
         color_continuous_scale=["#1A365D", "#2E7D32"]
     )
     
+    # Configurar etiquetas al frente de la barra horizontal
+    fig_ranking.update_traces(
+        texttemplate='%{text}',  # Formato del valor
+        textposition='outside'   # Posición por fuera (frente) a la barra
+    )
+    
     fig_ranking.update_layout(
-        margin=dict(l=200, r=25, t=10, b=20), 
+        margin=dict(l=200, r=60, t=10, b=20), # Margen derecho ampliado a 60px para que no se corten las etiquetas de texto
         height=altura_dinamica
     )
     fig_ranking.update_yaxes(
