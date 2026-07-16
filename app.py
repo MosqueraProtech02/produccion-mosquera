@@ -189,7 +189,19 @@ fechas_disponibles_dt = sorted(list(df_raw["Fecha"].unique()))
 fechas_disponibles_str = [pd.to_datetime(f).strftime('%Y-%m-%d') for f in fechas_disponibles_dt]
 
 if fechas_disponibles_str:
-    fecha_seleccionada_str = st.sidebar.selectbox("Seleccionar Día Específico:", fechas_disponibles_str)
+    # NUEVA MEJORA: Buscar la última fecha de los datos para usarla como índice por defecto
+    ultima_fecha_str = pd.to_datetime(df_raw["Fecha"].max()).strftime('%Y-%m-%d')
+    try:
+        # Buscamos en qué posición de la lista está la fecha más reciente para que Streamlit se sitúe ahí al iniciar
+        index_defecto = fechas_disponibles_str.index(ultima_fecha_str)
+    except ValueError:
+        index_defecto = len(fechas_disponibles_str) - 1
+
+    fecha_seleccionada_str = st.sidebar.selectbox(
+        "Seleccionar Día Específico:", 
+        fechas_disponibles_str,
+        index=index_defecto  # El selector ahora se abre por defecto en el día más reciente con datos
+    )
     fecha_seleccionada = pd.to_datetime(fecha_seleccionada_str)
 else:
     fecha_seleccionada = None
@@ -205,21 +217,30 @@ else:
     df_filtrado_dia = pd.DataFrame()
     total_cajas_dia = 0
 
-# 2. Cálculo del mes con datos más recientes para la meta mensual
+# 2. Cálculo del mes con datos más recientes para la meta mensual (Traducido y dinámico)
 if not df_raw.empty:
-    ultima_fecha_datos = df_raw["Fecha"].max()
-    mes_actual = ultima_fecha_datos.month
-    anio_actual = ultima_fecha_datos.year
+    # Si hay una fecha seleccionada por el usuario, calculamos el avance mensual en base a ese mes seleccionado.
+    # Si no, tomamos la fecha más reciente de los datos.
+    fecha_base_mes = fecha_seleccionada if fecha_seleccionada is not None else df_raw["Fecha"].max()
+    mes_actual = fecha_base_mes.month
+    anio_actual = fecha_base_mes.year
     
     df_mes_actual = df_raw[
         (df_raw["Fecha"].dt.month == mes_actual) & 
         (df_raw["Fecha"].dt.year == anio_actual)
     ]
     total_acumulado_mes_actual = len(df_mes_actual)
-    nombre_mes_kpi = ultima_fecha_datos.strftime('%B').capitalize()
+    
+    # Diccionario de traducción para asegurar que el mes esté siempre en español
+    meses_espanol = {
+        1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL", 
+        5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO", 
+        9: "SEPTIEMBRE", 10: "OCTUBRE", 11: "NOVIEMBRE", 12: "DICIEMBRE"
+    }
+    nombre_mes_kpi = meses_espanol.get(mes_actual, "MES ACTUAL")
 else:
     total_acumulado_mes_actual = 0
-    nombre_mes_kpi = "Mes"
+    nombre_mes_kpi = "MES"
 
 # 3. Avance Global dinámico basado en ID consecutivo más alto
 total_acumulado_proyecto = int(df_raw["Cajas_Identidad_Num"].max()) if not df_raw.empty else 0
