@@ -332,10 +332,9 @@ with col_graf1:
             margin=dict(l=200, r=25, t=10, b=20), 
             height=altura_dinamica
         )
-        # Configuración independiente del eje vertical para evitar errores de validación de tipo
+        # Configuración limpia del eje vertical (Se eliminó el autorange='ascending' que causaba el error)
         fig_ranking.update_yaxes(
-            autorange="ascending",
-            dtick=1
+            type='category'
         )
         st.plotly_chart(fig_ranking, use_container_width=True)
     else:
