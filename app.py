@@ -301,28 +301,16 @@ col_graf1, col_graf2 = st.columns([3, 2])
 with col_graf1:
     st.markdown("### 🏆 Ranking de Producción Acumulada por Persona")
     if not df_filtrado_persona.empty:
-        # Agrupar y ordenar para mostrar a todos los operarios
         ranking_df = df_filtrado_persona.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
-        
-        # Calcular altura dinámica de forma segura para pasarla como argumento en px.bar
-        num_colaboradores = len(ranking_df)
-        altura_calculada = max(450, num_colaboradores * 25 + 80)
-        
         fig_ranking = px.bar(
             ranking_df, 
             x="Cajas_Producidas", 
             y="Persona", 
             orientation="h", 
             color="Cajas_Producidas", 
-            color_continuous_scale=["#1A365D", "#2E7D32"],
-            height=altura_calculada  # Asignado directamente aquí de forma limpia
+            color_continuous_scale=["#1A365D", "#2E7D32"]
         )
-        
-        # Ajustamos los márgenes exclusivamente para dar un espaciado decente a los textos
-        fig_ranking.update_layout(
-            margin=dict(l=180, r=20, t=20, b=20),
-            yaxis=dict(autorange="ascending")
-        )
+        fig_ranking.update_layout(margin=dict(l=20, r=20, t=10, b=20), height=400)
         st.plotly_chart(fig_ranking, use_container_width=True)
     else:
         st.info("No hay datos disponibles para generar el ranking.")
