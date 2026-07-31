@@ -5,7 +5,7 @@ import datetime
 import plotly.express as px
 import plotly.graph_objects as go
 
-# --- 1. CONFIGURACIÓN DE LA PÁGINA ---
+# --- 1. CONFIGURACIÓN DE LA PÁGINA (Sidebar desplegado por defecto) ---
 st.set_page_config(
     page_title="Dashboard de Producción - Proceso Clasificación",
     page_icon="📊",
@@ -223,6 +223,8 @@ with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/771/771239.png", width=70)
     st.title("Panel de Control")
     st.caption("Datos sincronizados en tiempo real")
+    
+    # Cuadro informativo de columnas detectadas
     st.info("Columnas detectadas:\n- Fecha: `Fecha` \n- Operario: `Persona` \n- Identidad Caja: `Cajas_Identidad`")
 
     if st.button("🔄 Sincronizar Google Sheets", key="sync_btn", use_container_width=True):
