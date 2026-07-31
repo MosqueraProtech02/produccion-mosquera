@@ -2,10 +2,11 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import datetime
+import io
 import plotly.express as px
 import plotly.graph_objects as go
 
-# --- 1. CONFIGURACIÓN DE LA PÁGINA (Sidebar desplegado por defecto) ---
+# --- 1. CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(
     page_title="Dashboard de Producción - Proceso Clasificación",
     page_icon="📊",
@@ -94,7 +95,7 @@ st.markdown("""
     }
 
     /* Estilo para los botones */
-    div.stButton > button {
+    div.stButton > button, div.stDownloadButton > button {
         border-radius: 8px;
         font-weight: 600;
     }
@@ -264,6 +265,41 @@ with st.sidebar:
         fecha_seleccionada = pd.to_datetime(fecha_seleccionada_str)
     else:
         fecha_seleccionada = None
+
+    # --- SECCIÓN DE DESCARGA DE DATOS EN EL PANEL DE CONTROL ---
+    st.markdown("---")
+    st.subheader("📥 Descargar Reporte")
+    
+    df_exportar = df_limpio if persona_seleccionada == "Todos" else df_limpio[df_limpio["Persona"] == persona_seleccionada]
+    
+    # Preparar DataFrame para descarga
+    df_download = df_exportar[["Fecha", "Persona", "Cajas_Identidad"]].copy()
+    df_download["Fecha"] = df_download["Fecha"].dt.strftime('%Y-%m-%d')
+    
+    formato_descarga = st.radio("Formato de descarga:", ["Excel (.xlsx)", "CSV (.csv)"], key="format_download")
+    
+    if formato_descarga == "CSV (.csv)":
+        csv_data = df_download.to_csv(index=False).encode('utf-8-sig')
+        st.download_button(
+            label="📄 Descargar CSV",
+            data=csv_data,
+            file_name=f"reporte_produccion_{persona_seleccionada.lower().replace(' ', '_')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    else:
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df_download.to_excel(writer, index=False, sheet_name='Produccion')
+        excel_data = output.getvalue()
+        
+        st.download_button(
+            label="📊 Descargar Excel",
+            data=excel_data,
+            file_name=f"reporte_produccion_{persona_seleccionada.lower().replace(' ', '_')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
 
 # --- FILTRADO DE DATOS ---
 df_filtrado_persona = df_limpio if persona_seleccionada == "Todos" else df_limpio[df_limpio["Persona"] == persona_seleccionada]
