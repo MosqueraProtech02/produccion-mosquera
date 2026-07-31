@@ -16,8 +16,34 @@ st.set_page_config(
 # --- 2. ESTILOS CSS PERSONALIZADOS ---
 st.markdown("""
     <style>
-    .stApp { background-color: #F8FAFC; }
+    /* FONDO PRINCIPAL DEL DASHBOARD */
+    .stApp { 
+        background-color: #F1F5F9; 
+    }
 
+    /* BARRA LATERAL (PANEL DE CONTROL) - GRIS AZULADO */
+    section[data-testid="stSidebar"] {
+        background-color: #2D3748 !important;
+    }
+
+    /* TEXTOS Y TÍTULOS DENTRO DEL PANEL DE CONTROL EN BLANCO/GRIS CLARO */
+    section[data-testid="stSidebar"] h1, 
+    section[data-testid="stSidebar"] h2, 
+    section[data-testid="stSidebar"] h3, 
+    section[data-testid="stSidebar"] span, 
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] p {
+        color: #F8FAFC !important;
+    }
+
+    /* CAJAS SELECTORAS (SELECTBOX) Y DESPLEGABLES EN SIDEBAR */
+    section[data-testid="stSidebar"] div[data-baseweb="select"] > div {
+        background-color: #1A202C !important;
+        color: #FFFFFF !important;
+        border-color: #4A5568 !important;
+    }
+
+    /* HEADER BANNER */
     .header-banner {
         background: linear-gradient(135deg, #1A365D 0%, #0F172A 100%);
         color: white;
@@ -40,6 +66,7 @@ st.markdown("""
         font-weight: 600;
     }
 
+    /* TARJETAS KPI */
     .kpi-card {
         background-color: #FFFFFF;
         border: 1px solid #E2E8F0;
@@ -72,6 +99,7 @@ st.markdown("""
         color: #64748B;
     }
 
+    /* BOTONES */
     div.stButton > button, div.stDownloadButton > button {
         border-radius: 8px;
         font-weight: 600;
@@ -159,7 +187,7 @@ META_DIARIA_INDIVIDUAL = 3
 META_MENSUAL_EQUIPO = 2400
 META_GLOBAL_PROYECTO = 36099
 
-# --- BARRA LATERAL (SIDEBAR) ---
+# --- BARRA LATERAL (SIDEBAR / PANEL DE CONTROL) ---
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/771/771239.png", width=70)
     st.title("Panel de Control")
@@ -171,7 +199,7 @@ with st.sidebar:
 
     st.markdown("---")
     
-    # Limpieza de operarios
+    # Limpieza de personas / operarios
     palabras_ruido = ["humedad", "observacion", "comentario", "error", "vacio", "no asignado", "nan", "prueba"]
     df_limpio = df_raw[
         (df_raw["Persona"].notna()) & 
@@ -181,19 +209,18 @@ with st.sidebar:
         (df_raw["Persona"].str.len() < 45)
     ].copy()
 
-    # Añadir columna de Año-Mes para agrupaciones
     df_limpio["Anio_Mes"] = df_limpio["Fecha"].dt.to_period("M")
 
     lista_personas = ["Todos"] + sorted(list(df_limpio["Persona"].unique()))
     persona_seleccionada = st.selectbox("Seleccionar Operario:", lista_personas)
 
-    # MOSTRAR RANGO DE FECHAS (PRIMER Y ÚLTIMO REGISTRO DEL OPERARIO)
+    # RANGO DE REGISTRO DEL OPERARIO
     if persona_seleccionada != "Todos":
         df_op_info = df_limpio[df_limpio["Persona"] == persona_seleccionada]
         if not df_op_info.empty:
             p_registro = df_op_info["Fecha"].min().strftime('%Y-%m-%d')
             u_registro = df_op_info["Fecha"].max().strftime('%Y-%m-%d')
-            st.info(f"📌 **Periodo de Actividad ({persona_seleccionada}):**\n- **Inicio:** `{p_registro}`\n- **Último:** `{u_registro}`")
+            st.info(f"📌 **Periodo ({persona_seleccionada}):**\n- **Inicio:** `{p_registro}`\n- **Último:** `{u_registro}`")
 
     fechas_disponibles_dt = sorted(list(df_limpio["Fecha"].unique()))
     fechas_disponibles_str = [pd.to_datetime(f).strftime('%Y-%m-%d') for f in fechas_disponibles_dt]
@@ -206,7 +233,7 @@ with st.sidebar:
     else:
         fecha_seleccionada = None
 
-    # --- SECCIÓN DE REPORTE CON BÚSQUEDA AVANZADA ---
+    # REPORTE DE DESCARGA
     st.markdown("---")
     st.subheader("📥 Exportar Reporte")
     
@@ -242,7 +269,6 @@ with st.sidebar:
             df_exportar = pd.DataFrame()
             nombre_sufijo = "dia"
     else:
-        # Primer al último registro disponible de la selección
         df_exportar = df_base_descarga
         nombre_sufijo = "completo"
 
@@ -263,7 +289,7 @@ with st.sidebar:
     else:
         st.warning("Sin datos para los filtros seleccionados.")
 
-# --- FILTRADO DE DATOS VISTA DASHBOARD ---
+# --- FILTRADO Y VISTA DASHBOARD ---
 df_filtrado_persona = df_limpio if persona_seleccionada == "Todos" else df_limpio[df_limpio["Persona"] == persona_seleccionada]
 
 if fecha_seleccionada is not None:
@@ -353,7 +379,7 @@ with col4:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- SECCIÓN DE GRÁFICOS CON RANKING MENSUAL ---
+# --- RANKING DE PRODUCCIÓN POR OPERARIO Y MES ---
 with st.container(border=True):
     col_rank_head, col_rank_filter = st.columns([0.65, 0.35])
     with col_rank_head:
@@ -363,7 +389,6 @@ with st.container(border=True):
         opciones_meses_rank = ["Todos los Meses"] + [f"{MESES_ESPANOL[p.month]} {p.year}" for p in periodos_rank]
         mes_rank_sel = st.selectbox("📅 Seleccionar Mes para Ranking:", opciones_meses_rank, key="rank_mes_sel")
 
-    # Filtrar datos para el ranking según el mes seleccionado
     if mes_rank_sel != "Todos los Meses":
         idx_mes_rank = opciones_meses_rank.index(mes_rank_sel) - 1
         periodo_rank_elegido = periodos_rank[idx_mes_rank]
@@ -392,6 +417,7 @@ with st.container(border=True):
 
 st.markdown("<br>", unsafe_allow_html=True)
 
+# --- GRÁFICO HISTÓRICO ---
 with st.container(border=True):
     st.markdown("### 🎯 Progreso de Metas e Historial")
     if not df_filtrado_persona.empty:
@@ -411,9 +437,9 @@ with st.container(border=True):
     else:
         st.info("No hay datos históricos disponibles.")
 
-# --- SECCIÓN CONSOLIDADO ESTADOS ---
 st.markdown("<br>", unsafe_allow_html=True)
 
+# --- CONSOLIDADO DE ESTADOS ---
 with st.container(border=True):
     st.markdown("## 📊 Consolidado Estados")
     st.caption("Avance Diario e Histórico Consecutivo")
