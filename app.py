@@ -47,17 +47,52 @@ st.markdown("""
         color: #94A3B8 !important;
     }
 
-    /* Campos de Selección en la Barra Lateral */
-    section[data-testid="stSidebar"] div[data-baseweb="select"] > div {
-        background-color: #1E293B !important;
-        color: #FFFFFF !important;
-        border: 1px solid #334155 !important;
+    /* ========================================================= */
+    /* AJUSTE SOLICITADO: CAMPOS DE BÚSQUEDA Y SELECTS A BLANCO Y NEGRO */
+    /* ========================================================= */
+    
+    /* 1. Fondo blanco y texto negro en selectbox/inputs generales (sidebar e interior) */
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="input"] input,
+    section[data-testid="stSidebar"] div[data-baseweb="select"] > div,
+    section[data-testid="stSidebar"] div[data-baseweb="input"] input {
+        background-color: #FFFFFF !important;
+        color: #000000 !important;
+        border: 1px solid #CBD5E1 !important;
         border-radius: 8px !important;
     }
 
+    /* 2. Color negro para el texto dentro del select box y sus opciones */
+    div[data-baseweb="select"] *,
     section[data-testid="stSidebar"] div[data-baseweb="select"] * {
-        color: #FFFFFF !important;
+        color: #000000 !important;
     }
+
+    /* 3. Menú desplegable emergente (dropdown de BaseWeb) */
+    ul[data-baseweb="menu"],
+    div[data-baseweb="popover"] {
+        background-color: #FFFFFF !important;
+    }
+
+    ul[data-baseweb="menu"] li,
+    ul[data-baseweb="menu"] li * {
+        color: #000000 !important;
+        background-color: #FFFFFF !important;
+    }
+
+    /* Hover en las opciones del menú desplegable */
+    ul[data-baseweb="menu"] li:hover,
+    ul[data-baseweb="menu"] li:hover * {
+        background-color: #E2E8F0 !important;
+        color: #000000 !important;
+    }
+
+    /* Placeholder o texto de ayuda en inputs */
+    div[data-baseweb="input"] input::placeholder {
+        color: #64748B !important;
+    }
+
+    /* ========================================================= */
 
     /* Contenedores st.container(border=True) */
     div[data-testid="stVerticalBlockBorderWrapper"] > div {
