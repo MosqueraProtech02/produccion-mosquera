@@ -16,28 +16,43 @@ st.set_page_config(
 # --- 2. ESTILOS CSS PERSONALIZADOS ---
 st.markdown("""
     <style>
-    .stApp { background-color: #F1F5F9; }
-    section[data-testid="stSidebar"] { background-color: #2D3748 !important; }
+    /* Fondo principal: Gris Ratón */
+    .stApp { 
+        background-color: #4A5568 !important; 
+    }
+    
+    /* Color general de texto y títulos en el cuerpo principal */
+    .stApp, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, .stApp p, .stApp label, .stApp span {
+        color: #FFFFFF !important;
+    }
+
+    /* Estilos del Sidebar */
+    section[data-testid="stSidebar"] { 
+        background-color: #2D3748 !important; 
+    }
     section[data-testid="stSidebar"] h1, 
     section[data-testid="stSidebar"] h2, 
     section[data-testid="stSidebar"] h3, 
     section[data-testid="stSidebar"] span, 
     section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] p { color: #F8FAFC !important; }
+    section[data-testid="stSidebar"] p { 
+        color: #F8FAFC !important; 
+    }
 
     section[data-testid="stSidebar"] div[data-baseweb="select"] > div {
         background-color: #1A202C !important;
         color: #FFFFFF !important;
-        border-color: #4A5568 !important;
+        border-color: #718096 !important;
     }
 
+    /* Banner Superior */
     .header-banner {
         background: linear-gradient(135deg, #1A365D 0%, #0F172A 100%);
         color: white;
         padding: 22px 28px;
         border-radius: 14px;
         margin-bottom: 25px;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -53,24 +68,30 @@ st.markdown("""
         font-weight: 600;
     }
 
+    /* Tarjetas KPI con fondo oscuro contrastante */
     .kpi-card {
-        background-color: #FFFFFF;
-        border: 1px solid #E2E8F0;
+        background-color: #2D3748;
+        border: 1px solid #718096;
         border-left: 5px solid #1A365D;
         border-radius: 12px;
         padding: 16px 20px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
         transition: transform 0.2s ease, box-shadow 0.2s ease;
         height: 100%;
     }
     .kpi-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
     }
-    .kpi-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748B; font-weight: 700; }
-    .kpi-value { font-size: 26px; font-weight: 800; color: #0F172A; margin: 4px 0; }
-    .kpi-subtext { font-size: 11px; color: #64748B; }
+    .kpi-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #CBD5E1; font-weight: 700; }
+    .kpi-value { font-size: 26px; font-weight: 800; color: #FFFFFF; margin: 4px 0; }
+    .kpi-subtext { font-size: 11px; color: #94A3B8; }
 
+    /* Botones y contenedores Streamlit */
+    div[data-testid="stForm"], div[data-testid="stExpander"] {
+        background-color: #2D3748 !important;
+        border-color: #718096 !important;
+    }
     div.stButton > button, div.stDownloadButton > button { border-radius: 8px; font-weight: 600; }
     </style>
 """, unsafe_allow_html=True)
@@ -308,7 +329,7 @@ fecha_str = fecha_seleccionada.strftime('%Y-%m-%d') if fecha_seleccionada else "
 
 with col1:
     st.markdown(f"""
-        <div class="kpi-card" style="border-left-color: #1A365D;">
+        <div class="kpi-card" style="border-left-color: #6366F1;">
             <div class="kpi-title">Producción del Día ({fecha_str})</div>
             <div class="kpi-value">{total_cajas_dia} Cajas</div>
             <div class="kpi-subtext">Registradas en el sistema</div>
@@ -318,7 +339,7 @@ with col1:
 with col2:
     avance_mensual = (total_acumulado_mes_actual / META_MENSUAL_EQUIPO) * 100 if META_MENSUAL_EQUIPO > 0 else 0
     st.markdown(f"""
-        <div class="kpi-card" style="border-left-color: #2E7D32;">
+        <div class="kpi-card" style="border-left-color: #22C55E;">
             <div class="kpi-title">Avance Meta Mensual ({nombre_mes_kpi})</div>
             <div class="kpi-value">{avance_mensual:.1f}%</div>
             <div class="kpi-subtext">{total_acumulado_mes_actual:,} de {META_MENSUAL_EQUIPO:,} Cajas</div>
@@ -328,7 +349,7 @@ with col2:
 with col3:
     avance_global = (total_acumulado_proyecto / META_GLOBAL_PROYECTO) * 100 if META_GLOBAL_PROYECTO > 0 else 0
     st.markdown(f"""
-        <div class="kpi-card" style="border-left-color: #0284C7;">
+        <div class="kpi-card" style="border-left-color: #38BDF8;">
             <div class="kpi-title">Avance Global Real</div>
             <div class="kpi-value">{avance_global:.2f}%</div>
             <div class="kpi-subtext">Caja {total_acumulado_proyecto:,} de {META_GLOBAL_PROYECTO:,}</div>
@@ -343,9 +364,9 @@ with col4:
         num_criticos = 0
         
     st.markdown(f"""
-        <div class="kpi-card" style="border-left-color: #EF4444;">
+        <div class="kpi-card" style="border-left-color: #F87171;">
             <div class="kpi-title">Alertas Bajo Rendimiento</div>
-            <div class="kpi-value" style="color: #EF4444;">{num_criticos} Pers.</div>
+            <div class="kpi-value" style="color: #F87171;">{num_criticos} Pers.</div>
             <div class="kpi-subtext">Menos de {META_DIARIA_INDIVIDUAL} cajas/día</div>
         </div>
     """, unsafe_allow_html=True)
@@ -353,7 +374,7 @@ with col4:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # --- RANKING DE PRODUCCIÓN POR OPERARIO Y MES ---
-with st.container(border=True):
+with st.container():
     col_rank_head, col_rank_filter = st.columns([0.65, 0.35])
     with col_rank_head:
         st.markdown("### 🏆 Ranking de Producción por Operario")
@@ -376,14 +397,15 @@ with st.container(border=True):
         fig_ranking = px.bar(
             ranking_df, x="Cajas_Producidas", y="Persona", orientation="h",
             color="Cajas_Producidas", text="Cajas_Producidas",
-            color_continuous_scale=["#1A365D", "#2E7D32"]
+            color_continuous_scale=["#38BDF8", "#4ADE80"]
         )
-        fig_ranking.update_traces(texttemplate='%{text}', textposition='outside')
+        fig_ranking.update_traces(texttemplate='%{text}', textposition='outside', textfont=dict(color="#FFFFFF"))
         fig_ranking.update_layout(
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color="#FFFFFF"),
             margin=dict(l=220, r=60, t=10, b=20), height=altura_dinamica,
-            xaxis=dict(showgrid=True, gridcolor="#E2E8F0"), 
-            yaxis=dict(type='category', showgrid=False, dtick=1)
+            xaxis=dict(showgrid=True, gridcolor="#718096", tickfont=dict(color="#FFFFFF")), 
+            yaxis=dict(type='category', showgrid=False, dtick=1, tickfont=dict(color="#FFFFFF"))
         )
         st.plotly_chart(fig_ranking, use_container_width=True)
     else:
@@ -392,7 +414,7 @@ with st.container(border=True):
 st.markdown("<br>", unsafe_allow_html=True)
 
 # --- GRÁFICO HISTÓRICO ---
-with st.container(border=True):
+with st.container():
     st.markdown("### 🎯 Progreso de Metas e Historial")
     if not df_filtrado_persona.empty:
         evolucion_diaria = df_filtrado_persona.groupby(df_filtrado_persona["Fecha"].dt.date).size().reset_index(name="Cajas_Por_Dia")
@@ -400,11 +422,12 @@ with st.container(border=True):
         evolucion_diaria = evolucion_diaria.sort_values(by="Fecha")
         evolucion_diaria["Cajas_Acumuladas"] = evolucion_diaria["Cajas_Por_Dia"].cumsum()
         
-        fig_lineas = px.area(evolucion_diaria, x="Fecha", y="Cajas_Acumuladas", markers=True, color_discrete_sequence=["#1A365D"])
+        fig_lineas = px.area(evolucion_diaria, x="Fecha", y="Cajas_Acumuladas", markers=True, color_discrete_sequence=["#38BDF8"])
         fig_lineas.update_layout(
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False),
-            yaxis=dict(showgrid=True, gridcolor="#E2E8F0"),
+            font=dict(color="#FFFFFF"),
+            xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False, tickfont=dict(color="#FFFFFF")),
+            yaxis=dict(showgrid=True, gridcolor="#718096", tickfont=dict(color="#FFFFFF")),
             margin=dict(l=40, r=40, t=10, b=20), height=380
         )
         st.plotly_chart(fig_lineas, use_container_width=True)
@@ -414,7 +437,7 @@ with st.container(border=True):
 st.markdown("<br>", unsafe_allow_html=True)
 
 # --- CONSOLIDADO DE ESTADOS ---
-with st.container(border=True):
+with st.container():
     st.markdown("## 📊 Consolidado Estados")
     st.caption("Avance Diario e Histórico Consecutivo")
 
@@ -436,14 +459,15 @@ with st.container(border=True):
         fig_estados = px.line(
             df_estados_sorted, x="Fecha", y=["TRD", "TP", "VIG", "FA"],
             labels={"value": "Cantidad", "Fecha": "Fecha", "variable": "Estado"},
-            markers=True, color_discrete_sequence=["#1A365D", "#2E7D32", "#F59E0B", "#EF4444"]
+            markers=True, color_discrete_sequence=["#6366F1", "#22C55E", "#F59E0B", "#F87171"]
         )
         fig_estados.update_layout(
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            font=dict(color="#FFFFFF"),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color="#FFFFFF")),
             margin=dict(l=20, r=20, t=10, b=20),
-            xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False),
-            yaxis=dict(showgrid=True, gridcolor="#E2E8F0")
+            xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False, tickfont=dict(color="#FFFFFF")),
+            yaxis=dict(showgrid=True, gridcolor="#718096", tickfont=dict(color="#FFFFFF"))
         )
         st.plotly_chart(fig_estados, use_container_width=True)
         
