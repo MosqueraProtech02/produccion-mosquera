@@ -13,13 +13,15 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. ESTILOS CSS PERSONALIZADOS (Ajustado para Máxima Legibilidad) ---
+# --- 2. ESTILOS CSS PERSONALIZADOS (Ajustado para Máximo Contraste y Legibilidad) ---
 st.markdown("""
     <style>
-    /* Fondo general de la aplicación */
-    .stApp { background-color: #F8FAFC; }
+    /* 1. Fondo Principal: Slate Ultra-Claro suave (#F4F6F9) para resaltar gráficos y tarjetas */
+    .stApp { 
+        background-color: #F4F6F9 !important; 
+    }
 
-    /* Barra Lateral - Fondo Azul Noche Ejecutivo */
+    /* 2. Barra Lateral - Fondo Azul Noche Ejecutivo */
     section[data-testid="stSidebar"] { 
         background-color: #0F172A !important; 
     }
@@ -54,7 +56,25 @@ st.markdown("""
         color: #FFFFFF !important;
     }
 
-    /* Banner Principal */
+    /* 3. Contenedores st.container(border=True) - Fondo Blanco Puro con Sombra */
+    div[data-testid="stVerticalBlockBorderWrapper"] > div {
+        background-color: #FFFFFF !important;
+        border-radius: 14px !important;
+        border: 1px solid #E2E8F0 !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -2px rgba(0, 0, 0, 0.03) !important;
+        padding: 18px !important;
+    }
+
+    /* Textos dentro de los contenedores generales para legibilidad */
+    div[data-testid="stVerticalBlockBorderWrapper"] h1,
+    div[data-testid="stVerticalBlockBorderWrapper"] h2,
+    div[data-testid="stVerticalBlockBorderWrapper"] h3,
+    div[data-testid="stVerticalBlockBorderWrapper"] h4 {
+        color: #0F172A !important;
+        font-weight: 700 !important;
+    }
+
+    /* 4. Banner Principal */
     .header-banner {
         background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
         color: white;
@@ -77,14 +97,14 @@ st.markdown("""
         font-weight: 600;
     }
 
-    /* Tarjetas de KPIs */
+    /* 5. Tarjetas de KPIs (Fondo blanco brillante que resalta sobre #F4F6F9) */
     .kpi-card {
         background-color: #FFFFFF;
         border: 1px solid #E2E8F0;
         border-left: 5px solid #0F172A;
         border-radius: 12px;
-        padding: 16px 20px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        padding: 18px 20px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.02);
         transition: transform 0.2s ease, box-shadow 0.2s ease;
         height: 100%;
     }
@@ -92,11 +112,11 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
     }
-    .kpi-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748B; font-weight: 700; }
-    .kpi-value { font-size: 26px; font-weight: 800; color: #0F172A; margin: 4px 0; }
-    .kpi-subtext { font-size: 11px; color: #64748B; }
+    .kpi-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; font-weight: 700; }
+    .kpi-value { font-size: 28px; font-weight: 800; color: #0F172A; margin: 4px 0; }
+    .kpi-subtext { font-size: 11px; color: #64748B; font-weight: 500; }
 
-    /* Botones de acción */
+    /* 6. Botones de Acción */
     div.stButton > button, div.stDownloadButton > button { 
         border-radius: 8px; 
         font-weight: 600;
@@ -488,6 +508,12 @@ with st.container(border=True):
 # --- DETALLE Y REVISIÓN DE REGISTROS ---
 st.markdown("<br>", unsafe_allow_html=True)
 with st.expander("📄 Ver detalle de datos procesados (Tabla de Operarios)"):
+    if not df_filtrado_persona.empty:
+        df_detalle = df_filtrado_persona[["Fecha", "Persona", "Cajas_Identidad"]].copy()
+        df_detalle["Fecha"] = df_detalle["Fecha"].dt.strftime('%Y-%m-%d')
+        st.dataframe(df_detalle, use_container_width=True, hide_index=True)
+    else:
+        st.info("No hay datos de operarios registrados para los filtros seleccionados.")
     if not df_filtrado_persona.empty:
         df_detalle = df_filtrado_persona[["Fecha", "Persona", "Cajas_Identidad"]].copy()
         df_detalle["Fecha"] = df_detalle["Fecha"].dt.strftime('%Y-%m-%d')
