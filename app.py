@@ -479,3 +479,13 @@ with st.container(border=True):
             st.dataframe(df_tabla_ver, use_container_width=True, hide_index=True)
     else:
         st.warning("⚠️ No se pudieron recuperar datos en la pestaña 'Estados' de tu Google Sheets.")
+
+# --- DETALLE Y REVISIÓN DE REGISTROS ---
+st.markdown("<br>", unsafe_allow_html=True)
+with st.expander("📄 Ver detalle de datos procesados (Tabla de Operarios)"):
+    if not df_filtrado_persona.empty:
+        df_detalle = df_filtrado_persona[["Fecha", "Persona", "Cajas_Identidad"]].copy()
+        df_detalle["Fecha"] = df_detalle["Fecha"].dt.strftime('%Y-%m-%d')
+        st.dataframe(df_detalle, use_container_width=True, hide_index=True)
+    else:
+        st.info("No hay datos de operarios registrados para los filtros seleccionados.")
