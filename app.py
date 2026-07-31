@@ -2,8 +2,19 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import datetime
+import io
 import plotly.express as px
 import plotly.graph_objects as go
+
+# --- IMPORTACIONES PARA REPORTES PDF (REPORTLAB) ---
+try:
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    HAS_REPORTLAB = True
+except ImportError:
+    HAS_REPORTLAB = False
 
 # --- 1. CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(
@@ -78,12 +89,96 @@ st.markdown("""
     }
 
     /* Estilo para los botones de la barra lateral */
-    div.stButton > button {
+    div.stButton > button, div.stDownloadButton > button {
         border-radius: 8px;
         font-weight: 600;
     }
     </style>
 """, unsafe_allow_html=True)
+
+# --- FUNCIÓN GENERADORA DE PDF (REPORTLAB) ---
+def generar_pdf_reporte(df_data, nombre_operario, df_estados=None):
+    if not HAS_REPORTLAB:
+        return None
+        
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=36,
+        bottomMargin=36
+    )
+    story = []
+    styles = getSampleStyleSheet()
+    
+    title_style = ParagraphStyle(
+        'DocTitle', parent=styles['Heading1'], fontSize=16,
+        textColor=colors.HexColor('#1A365D'), spaceAfter=4
+    )
+    subtitle_style = ParagraphStyle(
+        'DocSubTitle', parent=styles['Normal'], fontSize=9,
+        textColor=colors.HexColor('#64748B'), spaceAfter=12
+    )
+    section_style = ParagraphStyle(
+        'SectionTitle', parent=styles['Heading2'], fontSize=12,
+        textColor=colors.HexColor('#1A365D'), spaceBefore=10, spaceAfter=8
+    )
+    
+    # Encabezado Corporativo
+    story.append(Paragraph("Consorcio Prosyc - Reporte de Producción", title_style))
+    story.append(Paragraph(f"<b>Operario / Filtro:</b> {nombre_operario} &nbsp;|&nbsp; <b>Fecha de Emisión:</b> {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}", subtitle_style))
+    story.append(Spacer(1, 10))
+    
+    # Tabla 1: Registros de Producción
+    story.append(Paragraph("Detalle de Cajas Registradas", section_style))
+    tabla_datos = [["Fecha", "Operario / Persona", "Identificación Caja"]]
+    
+    for _, row in df_data.iterrows():
+        fecha_str = row['Fecha'].strftime('%Y-%m-%d') if isinstance(row['Fecha'], pd.Timestamp) else str(row['Fecha'])
+        tabla_datos.append([fecha_str, str(row['Persona']), str(row['Cajas_Identidad'])])
+        
+    t_prod = Table(tabla_datos, colWidths=[110, 230, 200])
+    t_prod.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1A365D')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#F8FAFC')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+    ]))
+    story.append(t_prod)
+    
+    # Tabla 2: Consolidado de Estados (Opcional)
+    if df_estados is not None and not df_estados.empty:
+        story.append(Spacer(1, 15))
+        story.append(Paragraph("Consolidado de Estados Registrados", section_style))
+        tabla_est = [["Fecha", "TRD", "TP", "VIG", "FA"]]
+        
+        for _, row in df_estados.iterrows():
+            f_str = row['Fecha'].strftime('%Y-%m-%d') if isinstance(row['Fecha'], pd.Timestamp) else str(row['Fecha'])
+            tabla_est.append([f_str, str(int(row.get('TRD',0))), str(int(row.get('TP',0))), str(int(row.get('VIG',0))), str(int(row.get('FA',0)))])
+            
+        t_est = Table(tabla_est, colWidths=[140, 100, 100, 100, 100])
+        t_est.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0F172A')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ]))
+        story.append(t_est)
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
 
 # --- 3. CARGA DE DATOS DESDE GOOGLE SHEETS ---
 @st.cache_data(ttl=10)
@@ -246,6 +341,39 @@ with st.sidebar:
         fecha_seleccionada = pd.to_datetime(fecha_seleccionada_str)
     else:
         fecha_seleccionada = None
+
+    # --- SECCIÓN DE REPORTES INTEGRADOS (PDF Y EXCEL/CSV) ---
+    st.markdown("---")
+    st.subheader("📥 Exportar Reportes")
+    
+    df_exportar = df_limpio if persona_seleccionada == "Todos" else df_limpio[df_limpio["Persona"] == persona_seleccionada]
+    
+    opcion_formato = st.radio("Formato de Reporte:", ["PDF Nativo (.pdf)", "Excel / CSV (.csv)"], key="format_radio")
+    
+    if opcion_formato == "PDF Nativo (.pdf)":
+        if HAS_REPORTLAB:
+            pdf_bytes = generar_pdf_reporte(df_exportar, persona_seleccionada, df_estados_raw)
+            st.download_button(
+                label="📄 Descargar PDF ReportLab",
+                data=pdf_bytes,
+                file_name=f"reporte_{persona_seleccionada.lower().replace(' ', '_')}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+        else:
+            st.warning("⚠️ Instala `reportlab` para habilitar PDF nativo.")
+    else:
+        df_csv = df_exportar[["Fecha", "Persona", "Cajas_Identidad"]].copy()
+        df_csv["Fecha"] = df_csv["Fecha"].dt.strftime('%Y-%m-%d')
+        csv_bytes = df_csv.to_csv(index=False).encode('utf-8-sig')
+        
+        st.download_button(
+            label="📊 Descargar CSV (Excel)",
+            data=csv_bytes,
+            file_name=f"reporte_{persona_seleccionada.lower().replace(' ', '_')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
 
 # --- FILTRADO DE DATOS ---
 df_filtrado_persona = df_limpio if persona_seleccionada == "Todos" else df_limpio[df_limpio["Persona"] == persona_seleccionada]
