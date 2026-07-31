@@ -13,15 +13,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. ESTILOS CSS PERSONALIZADOS (Efecto Tarjeta y Jerarquía Visual) ---
+# --- 2. ESTILOS CSS PERSONALIZADOS ---
 st.markdown("""
     <style>
-    /* Fondo general sutilmente gris para resaltar los bloques de información */
-    .stApp {
-        background-color: #F8FAFC;
-    }
+    .stApp { background-color: #F8FAFC; }
 
-    /* Encabezado Principal en Banner Corporativo */
     .header-banner {
         background: linear-gradient(135deg, #1A365D 0%, #0F172A 100%);
         color: white;
@@ -44,7 +40,6 @@ st.markdown("""
         font-weight: 600;
     }
 
-    /* Tarjetas KPI de Alto Impacto */
     .kpi-card {
         background-color: #FFFFFF;
         border: 1px solid #E2E8F0;
@@ -77,13 +72,19 @@ st.markdown("""
         color: #64748B;
     }
 
-    /* Estilo para los botones de la barra lateral */
     div.stButton > button, div.stDownloadButton > button {
         border-radius: 8px;
         font-weight: 600;
     }
     </style>
 """, unsafe_allow_html=True)
+
+# --- DICCIONARIO PARA NOMBRES DE MESES ---
+MESES_ESPANOL = {
+    1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 
+    5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 
+    9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+}
 
 # --- 3. CARGA DE DATOS DESDE GOOGLE SHEETS ---
 @st.cache_data(ttl=10)
@@ -92,65 +93,26 @@ def cargar_datos_reales():
         url = "https://docs.google.com/spreadsheets/d/1ld0sxAyU9mYhQ69yv6w2d4sWhK8QW4E0XZlz4hYMhfA/export?format=csv&gid=990786706"
         df = pd.read_csv(url)
         
-        # Limpieza uniforme de nombres de columnas
         df.columns = [col.strip().lower().replace('á','a').replace('é','e').replace('í','i').replace('ó','o').replace('ú','u') for col in df.columns]
         
-        # Mapeo inteligente con prioridades corregidas
-        col_fecha = None
-        for c in df.columns:
-            if c in ['fecha', 'dia']:
-                col_fecha = c
-                break
+        col_fecha = next((c for c in df.columns if c in ['fecha', 'dia']), None)
         if not col_fecha:
-            for c in df.columns:
-                if 'fecha' in c or 'dia' in c:
-                    col_fecha = c
-                    break
-        if not col_fecha: 
-            col_fecha = df.columns[0]
+            col_fecha = next((c for c in df.columns if 'fecha' in c or 'dia' in c), df.columns[0])
         
-        col_persona = None
-        for c in df.columns:
-            if c in ['persona', 'operario']:
-                col_persona = c
-                break
+        col_persona = next((c for c in df.columns if c in ['persona', 'operario']), None)
         if not col_persona:
-            for c in df.columns:
-                if any(x in c for x in ['persona', 'operario', 'nombre', 'usuario', 'empleado']):
-                    col_persona = c
-                    break
-        if not col_persona: 
-            col_persona = df.columns[1]
+            col_persona = next((c for c in df.columns if any(x in c for x in ['persona', 'operario', 'nombre', 'usuario', 'empleado'])), df.columns[1])
         
-        col_cajas = None
-        for c in df.columns:
-            if any(x in c for x in ['cajas_identidad', 'caja_identidad', 'identidad']):
-                col_cajas = c
-                break
+        col_cajas = next((c for c in df.columns if any(x in c for x in ['cajas_identidad', 'caja_identidad', 'identidad'])), None)
         if not col_cajas:
-            for c in df.columns:
-                if any(x in c for x in ['caja', 'produc', 'rendi', 'total', 'cant']):
-                    col_cajas = c
-                    break
-        if not col_cajas: 
-            col_cajas = df.columns[2]
+            col_cajas = next((c for c in df.columns if any(x in c for x in ['caja', 'produc', 'rendi', 'total', 'cant'])), df.columns[2])
         
-        # Renombrar columnas de forma segura
         df = df.rename(columns={col_fecha: "Fecha", col_persona: "Persona", col_cajas: "Cajas_Identidad"})
-        
-        # Interpretación de fecha
         df["Fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True, errors='coerce')
-        
-        # Estandarizar nombres
         df["Persona"] = df["Persona"].astype(str).str.strip().str.title().fillna("No Asignado")
-        
-        # Extraer números de manera segura
         df["Cajas_Identidad_Num"] = df["Cajas_Identidad"].astype(str).str.extract(r'(\d+)').astype(float).fillna(0).astype(int)
         
-        # Eliminar filas donde la Fecha sea inválida o nula
         df = df.dropna(subset=["Fecha"])
-        
-        # Filtro de seguridad dinámico contra fechas futuras accidentales
         hoy = pd.Timestamp.now().normalize()
         df = df[df["Fecha"] <= hoy]
         
@@ -173,20 +135,15 @@ def cargar_datos_estados():
     try:
         url_estados = "https://docs.google.com/spreadsheets/d/1ld0sxAyU9mYhQ69yv6w2d4sWhK8QW4E0XZlz4hYMhfA/gviz/tq?tqx=out:csv&sheet=Estados"
         df_est = pd.read_csv(url_estados)
-        
         df_est.columns = [col.strip() for col in df_est.columns]
         df_est = df_est.dropna(subset=["Fecha"]).copy()
-        
         df_est["Fecha"] = pd.to_datetime(df_est["Fecha"], dayfirst=True, errors='coerce')
         
         hoy = pd.Timestamp.now().normalize()
         df_est = df_est[df_est["Fecha"] <= hoy]
         
         for col in ["TRD", "TP", "VIG", "FA"]:
-            if col in df_est.columns:
-                df_est[col] = pd.to_numeric(df_est[col], errors='coerce').fillna(0).astype(int)
-            else:
-                df_est[col] = 0
+            df_est[col] = pd.to_numeric(df_est[col], errors='coerce').fillna(0).astype(int) if col in df_est.columns else 0
         
         return df_est.dropna(subset=["Fecha"]).sort_values(by="Fecha")
     except Exception as e:
@@ -207,7 +164,6 @@ with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/771/771239.png", width=70)
     st.title("Panel de Control")
     st.caption("Datos sincronizados en tiempo real")
-    st.info("Columnas detectadas:\n- Fecha: `Fecha` \n- Operario: `Persona` \n- Identidad Caja: `Cajas_Identidad`")
 
     if st.button("🔄 Sincronizar Google Sheets", key="sync_btn", use_container_width=True):
         st.cache_data.clear()
@@ -215,7 +171,7 @@ with st.sidebar:
 
     st.markdown("---")
     
-    # Limpieza avanzada de operarios
+    # Limpieza de operarios
     palabras_ruido = ["humedad", "observacion", "comentario", "error", "vacio", "no asignado", "nan", "prueba"]
     df_limpio = df_raw[
         (df_raw["Persona"].notna()) & 
@@ -233,39 +189,77 @@ with st.sidebar:
 
     if fechas_disponibles_str:
         ultima_fecha_str = pd.to_datetime(df_limpio["Fecha"].max()).strftime('%Y-%m-%d')
-        try:
-            index_defecto = fechas_disponibles_str.index(ultima_fecha_str)
-        except ValueError:
-            index_defecto = len(fechas_disponibles_str) - 1
-
-        fecha_seleccionada_str = st.selectbox(
-            "Seleccionar Día Específico:", 
-            fechas_disponibles_str,
-            index=index_defecto  
-        )
+        index_defecto = fechas_disponibles_str.index(ultima_fecha_str) if ultima_fecha_str in fechas_disponibles_str else len(fechas_disponibles_str) - 1
+        fecha_seleccionada_str = st.selectbox("Seleccionar Día Específico:", fechas_disponibles_str, index=index_defecto)
         fecha_seleccionada = pd.to_datetime(fecha_seleccionada_str)
     else:
         fecha_seleccionada = None
 
-    # --- SECCIÓN DE REPORTE EXCEL / CSV ---
+    # --- SECCIÓN DE REPORTE CON BÚSQUEDA AVANZADA ---
     st.markdown("---")
     st.subheader("📥 Exportar Reporte")
     
-    df_exportar = df_limpio if persona_seleccionada == "Todos" else df_limpio[df_limpio["Persona"] == persona_seleccionada]
-    
-    df_csv = df_exportar[["Fecha", "Persona", "Cajas_Identidad"]].copy()
-    df_csv["Fecha"] = df_csv["Fecha"].dt.strftime('%Y-%m-%d')
-    csv_bytes = df_csv.to_csv(index=False).encode('utf-8-sig')
-    
-    st.download_button(
-        label="📊 Descargar Reporte (CSV / Excel)",
-        data=csv_bytes,
-        file_name=f"reporte_{persona_seleccionada.lower().replace(' ', '_')}.csv",
-        mime="text/csv",
-        use_container_width=True
+    # Menú desplegable para el tipo de filtro del reporte
+    tipo_filtro_reporte = st.selectbox(
+        "🔍 Búsqueda Avanzada / Filtro:",
+        ["Todo el Histórico", "Por Mes", "Por Día Específico"],
+        key="tipo_filtro_reporte"
     )
 
-# --- FILTRADO DE DATOS ---
+    # Filtrar según la selección del operario primero
+    df_base_descarga = df_limpio if persona_seleccionada == "Todos" else df_limpio[df_limpio["Persona"] == persona_seleccionada]
+
+    # Aplicar filtro temporal según la opción seleccionada
+    if tipo_filtro_reporte == "Por Mes":
+        # Extraer meses/años disponibles
+        df_base_descarga["Anio_Mes"] = df_base_descarga["Fecha"].dt.to_period("M")
+        periodos_disponibles = sorted(list(df_base_descarga["Anio_Mes"].unique()), reverse=True)
+        
+        opciones_meses = [f"{MESES_ESPANOL[p.month]} {p.year}" for p in periodos_disponibles]
+        
+        if opciones_meses:
+            mes_seleccionado_txt = st.selectbox("Seleccionar Mes a Exportar:", opciones_meses)
+            idx_mes = opciones_meses.index(mes_seleccionado_txt)
+            periodo_elegido = periodos_disponibles[idx_mes]
+            
+            df_exportar = df_base_descarga[df_base_descarga["Anio_Mes"] == periodo_elegido]
+            nombre_sufijo = f"mes_{periodo_elegido.strftime('%Y_%m')}"
+        else:
+            df_exportar = pd.DataFrame()
+            nombre_sufijo = "mes"
+
+    elif tipo_filtro_reporte == "Por Día Específico":
+        if fechas_disponibles_str:
+            dia_reporte_str = st.selectbox("Seleccionar Día a Exportar:", fechas_disponibles_str, key="dia_rep")
+            df_exportar = df_base_descarga[df_base_descarga["Fecha"] == pd.to_datetime(dia_reporte_str)]
+            nombre_sufijo = f"dia_{dia_reporte_str}"
+        else:
+            df_exportar = pd.DataFrame()
+            nombre_sufijo = "dia"
+    else:
+        # Todo el histórico
+        df_exportar = df_base_descarga
+        nombre_sufijo = "historico"
+
+    # Botón de Descarga
+    if not df_exportar.empty:
+        df_csv = df_exportar[["Fecha", "Persona", "Cajas_Identidad"]].copy()
+        df_csv["Fecha"] = df_csv["Fecha"].dt.strftime('%Y-%m-%d')
+        csv_bytes = df_csv.to_csv(index=False).encode('utf-8-sig')
+        
+        nombre_persona_slug = persona_seleccionada.lower().replace(' ', '_')
+        
+        st.download_button(
+            label=f"📊 Descargar Reporte ({len(df_exportar)} reg.)",
+            data=csv_bytes,
+            file_name=f"reporte_{nombre_persona_slug}_{nombre_sufijo}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    else:
+        st.warning("Sin datos para los filtros seleccionados.")
+
+# --- FILTRADO DE DATOS VISTA DASHBOARD ---
 df_filtrado_persona = df_limpio if persona_seleccionada == "Todos" else df_limpio[df_limpio["Persona"] == persona_seleccionada]
 
 if fecha_seleccionada is not None:
@@ -285,13 +279,7 @@ if not df_limpio.empty:
         (df_limpio["Fecha"].dt.year == anio_actual)
     ]
     total_acumulado_mes_actual = len(df_mes_actual)
-    
-    meses_espanol = {
-        1: "ENERO", 2: "FEBRERO", 3: "MARZO", 4: "ABRIL", 
-        5: "MAYO", 6: "JUNIO", 7: "JULIO", 8: "AGOSTO", 
-        9: "SEPTIEMBRE", 10: "OCTUBRE", 11: "NOVIEMBRE", 12: "DICIEMBRE"
-    }
-    nombre_mes_kpi = meses_espanol.get(mes_actual, "MES ACTUAL")
+    nombre_mes_kpi = MESES_ESPANOL.get(mes_actual, "MES ACTUAL").upper()
 else:
     total_acumulado_mes_actual = 0
     nombre_mes_kpi = "MES"
@@ -313,7 +301,6 @@ st.markdown("""
 
 # --- TARJETAS DE KPIS PRINCIPALES ---
 col1, col2, col3, col4 = st.columns(4)
-
 fecha_str = fecha_seleccionada.strftime('%Y-%m-%d') if fecha_seleccionada else ""
 
 with col1:
@@ -362,39 +349,23 @@ with col4:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- SECCIÓN DE GRÁFICOS DENTRO DE CONTENEDORES ---
-
-# 1. Ranking de Producción (Sección Superior)
+# --- SECCIÓN DE GRÁFICOS ---
 with st.container(border=True):
     st.markdown("### 🏆 Ranking de Producción Acumulada por Persona")
     if not df_filtrado_persona.empty:
         ranking_df = df_filtrado_persona.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
-        
-        cant_operarios = len(ranking_df)
-        altura_dinamica = int(max(400, 150 + (cant_operarios * 30)))
+        altura_dinamica = int(max(400, 150 + (len(ranking_df) * 30)))
         
         fig_ranking = px.bar(
-            ranking_df, 
-            x="Cajas_Producidas", 
-            y="Persona", 
-            orientation="h", 
-            color="Cajas_Producidas", 
-            text="Cajas_Producidas",
+            ranking_df, x="Cajas_Producidas", y="Persona", orientation="h",
+            color="Cajas_Producidas", text="Cajas_Producidas",
             color_continuous_scale=["#1A365D", "#2E7D32"]
         )
-        
-        fig_ranking.update_traces(
-            texttemplate='%{text}',
-            textposition='outside'
-        )
-        
+        fig_ranking.update_traces(texttemplate='%{text}', textposition='outside')
         fig_ranking.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=180, r=60, t=10, b=20),
-            height=altura_dinamica,
-            xaxis=dict(showgrid=True, gridcolor="#E2E8F0"),
-            yaxis=dict(type='category', showgrid=False)
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=180, r=60, t=10, b=20), height=altura_dinamica,
+            xaxis=dict(showgrid=True, gridcolor="#E2E8F0"), yaxis=dict(type='category', showgrid=False)
         )
         st.plotly_chart(fig_ranking, use_container_width=True)
     else:
@@ -402,7 +373,6 @@ with st.container(border=True):
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 2. Progreso de Metas e Historial (Sección Inferior)
 with st.container(border=True):
     st.markdown("### 🎯 Progreso de Metas e Historial")
     if not df_filtrado_persona.empty:
@@ -411,21 +381,12 @@ with st.container(border=True):
         evolucion_diaria = evolucion_diaria.sort_values(by="Fecha")
         evolucion_diaria["Cajas_Acumuladas"] = evolucion_diaria["Cajas_Por_Dia"].cumsum()
         
-        # Gráfico de Área para un acabado con más volumen visual
-        fig_lineas = px.area(
-            evolucion_diaria, 
-            x="Fecha", 
-            y="Cajas_Acumuladas", 
-            markers=True,
-            color_discrete_sequence=["#1A365D"]
-        )
+        fig_lineas = px.area(evolucion_diaria, x="Fecha", y="Cajas_Acumuladas", markers=True, color_discrete_sequence=["#1A365D"])
         fig_lineas.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False),
             yaxis=dict(showgrid=True, gridcolor="#E2E8F0"),
-            margin=dict(l=40, r=40, t=10, b=20),
-            height=380
+            margin=dict(l=40, r=40, t=10, b=20), height=380
         )
         st.plotly_chart(fig_lineas, use_container_width=True)
     else:
@@ -454,17 +415,12 @@ with st.container(border=True):
         st.markdown("#### 📈 Comportamiento y Evolución Diaria de los Estados")
         
         fig_estados = px.line(
-            df_estados_sorted, 
-            x="Fecha", 
-            y=["TRD", "TP", "VIG", "FA"],
+            df_estados_sorted, x="Fecha", y=["TRD", "TP", "VIG", "FA"],
             labels={"value": "Cantidad", "Fecha": "Fecha", "variable": "Estado"},
-            markers=True,
-            color_discrete_sequence=["#1A365D", "#2E7D32", "#F59E0B", "#EF4444"]
+            markers=True, color_discrete_sequence=["#1A365D", "#2E7D32", "#F59E0B", "#EF4444"]
         )
-        
         fig_estados.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             margin=dict(l=20, r=20, t=10, b=20),
             xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False),
