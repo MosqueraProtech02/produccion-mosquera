@@ -181,8 +181,19 @@ with st.sidebar:
         (df_raw["Persona"].str.len() < 45)
     ].copy()
 
+    # Añadir columna de Año-Mes para agrupaciones
+    df_limpio["Anio_Mes"] = df_limpio["Fecha"].dt.to_period("M")
+
     lista_personas = ["Todos"] + sorted(list(df_limpio["Persona"].unique()))
     persona_seleccionada = st.selectbox("Seleccionar Operario:", lista_personas)
+
+    # MOSTRAR RANGO DE FECHAS (PRIMER Y ÚLTIMO REGISTRO DEL OPERARIO)
+    if persona_seleccionada != "Todos":
+        df_op_info = df_limpio[df_limpio["Persona"] == persona_seleccionada]
+        if not df_op_info.empty:
+            p_registro = df_op_info["Fecha"].min().strftime('%Y-%m-%d')
+            u_registro = df_op_info["Fecha"].max().strftime('%Y-%m-%d')
+            st.info(f"📌 **Periodo de Actividad ({persona_seleccionada}):**\n- **Inicio:** `{p_registro}`\n- **Último:** `{u_registro}`")
 
     fechas_disponibles_dt = sorted(list(df_limpio["Fecha"].unique()))
     fechas_disponibles_str = [pd.to_datetime(f).strftime('%Y-%m-%d') for f in fechas_disponibles_dt]
@@ -199,22 +210,16 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("📥 Exportar Reporte")
     
-    # Menú desplegable para el tipo de filtro del reporte
     tipo_filtro_reporte = st.selectbox(
         "🔍 Búsqueda Avanzada / Filtro:",
-        ["Todo el Histórico", "Por Mes", "Por Día Específico"],
+        ["Primer al Último Registro (Histórico)", "Por Mes", "Por Día Específico"],
         key="tipo_filtro_reporte"
     )
 
-    # Filtrar según la selección del operario primero
     df_base_descarga = df_limpio if persona_seleccionada == "Todos" else df_limpio[df_limpio["Persona"] == persona_seleccionada]
 
-    # Aplicar filtro temporal según la opción seleccionada
     if tipo_filtro_reporte == "Por Mes":
-        # Extraer meses/años disponibles
-        df_base_descarga["Anio_Mes"] = df_base_descarga["Fecha"].dt.to_period("M")
         periodos_disponibles = sorted(list(df_base_descarga["Anio_Mes"].unique()), reverse=True)
-        
         opciones_meses = [f"{MESES_ESPANOL[p.month]} {p.year}" for p in periodos_disponibles]
         
         if opciones_meses:
@@ -237,11 +242,10 @@ with st.sidebar:
             df_exportar = pd.DataFrame()
             nombre_sufijo = "dia"
     else:
-        # Todo el histórico
+        # Primer al último registro disponible de la selección
         df_exportar = df_base_descarga
-        nombre_sufijo = "historico"
+        nombre_sufijo = "completo"
 
-    # Botón de Descarga
     if not df_exportar.empty:
         df_csv = df_exportar[["Fecha", "Persona", "Cajas_Identidad"]].copy()
         df_csv["Fecha"] = df_csv["Fecha"].dt.strftime('%Y-%m-%d')
@@ -349,11 +353,26 @@ with col4:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- SECCIÓN DE GRÁFICOS ---
+# --- SECCIÓN DE GRÁFICOS CON RANKING MENSUAL ---
 with st.container(border=True):
-    st.markdown("### 🏆 Ranking de Producción Acumulada por Persona")
-    if not df_filtrado_persona.empty:
-        ranking_df = df_filtrado_persona.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
+    col_rank_head, col_rank_filter = st.columns([0.65, 0.35])
+    with col_rank_head:
+        st.markdown("### 🏆 Ranking de Producción por Operario")
+    with col_rank_filter:
+        periodos_rank = sorted(list(df_limpio["Anio_Mes"].unique()), reverse=True)
+        opciones_meses_rank = ["Todos los Meses"] + [f"{MESES_ESPANOL[p.month]} {p.year}" for p in periodos_rank]
+        mes_rank_sel = st.selectbox("📅 Seleccionar Mes para Ranking:", opciones_meses_rank, key="rank_mes_sel")
+
+    # Filtrar datos para el ranking según el mes seleccionado
+    if mes_rank_sel != "Todos los Meses":
+        idx_mes_rank = opciones_meses_rank.index(mes_rank_sel) - 1
+        periodo_rank_elegido = periodos_rank[idx_mes_rank]
+        df_ranking_base = df_filtrado_persona[df_filtrado_persona["Anio_Mes"] == periodo_rank_elegido]
+    else:
+        df_ranking_base = df_filtrado_persona
+
+    if not df_ranking_base.empty:
+        ranking_df = df_ranking_base.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
         altura_dinamica = int(max(400, 150 + (len(ranking_df) * 30)))
         
         fig_ranking = px.bar(
@@ -369,7 +388,7 @@ with st.container(border=True):
         )
         st.plotly_chart(fig_ranking, use_container_width=True)
     else:
-        st.info("No hay datos disponibles para generar el ranking.")
+        st.info("No hay datos disponibles para el mes o filtro seleccionado.")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
