@@ -170,14 +170,15 @@ with st.sidebar:
 
     st.markdown("---")
     
-    # Limpieza de personas (Aumentado el límite de longitud a 80 y sanitizado el strip)
+    # Limpieza de personas evitando coincidencias parciales con nombres/apellidos
     palabras_ruido = ["humedad", "observacion", "comentario", "error", "vacio", "no asignado", "nan", "prueba"]
+    patron_ruido = r'\b(' + '|'.join(palabras_ruido) + r')\b'
     
     df_limpio = df_raw[
         (df_raw["Persona"].notna()) & 
-        (df_raw["Persona"].str.strip() != "") &
-        (df_raw["Persona"] != "No Asignado") &
-        (~df_raw["Persona"].str.lower().str.contains('|'.join(palabras_ruido))) &
+        (df_raw["Persona"].str.strip() != "") & 
+        (df_raw["Persona"] != "No Asignado") & 
+        (~df_raw["Persona"].str.lower().str.contains(patron_ruido, regex=True)) & 
         (df_raw["Persona"].str.len() < 80)
     ].copy()
 
