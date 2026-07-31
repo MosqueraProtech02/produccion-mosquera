@@ -13,15 +13,20 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. ESTILOS CSS PERSONALIZADOS (Ajustado para Máximo Contraste y Legibilidad) ---
+# --- 2. ESTILOS CSS PERSONALIZADOS (Legibilidad Extrema) ---
 st.markdown("""
     <style>
-    /* 1. Fondo Principal: Slate Ultra-Claro suave (#F4F6F9) para resaltar gráficos y tarjetas */
+    /* Fondo principal gris muy suave */
     .stApp { 
-        background-color: #F4F6F9 !important; 
+        background-color: #F1F5F9 !important; 
     }
 
-    /* 2. Barra Lateral - Fondo Azul Noche Ejecutivo */
+    /* Garantizar contraste alto en TODO el texto por defecto */
+    html, body, [class*="st-"], .stMarkdown, p, span, label {
+        color: #0F172A !important;
+    }
+
+    /* Barra Lateral - Fondo Azul Noche Ejecutivo */
     section[data-testid="stSidebar"] { 
         background-color: #0F172A !important; 
     }
@@ -38,12 +43,11 @@ st.markdown("""
         font-weight: 500;
     }
 
-    /* Subtítulos y textos secundarios en el sidebar */
     section[data-testid="stSidebar"] .stCaption {
         color: #94A3B8 !important;
     }
 
-    /* Campos de Selección (Selectbox y Desplegables) en la Barra Lateral */
+    /* Campos de Selección en la Barra Lateral */
     section[data-testid="stSidebar"] div[data-baseweb="select"] > div {
         background-color: #1E293B !important;
         color: #FFFFFF !important;
@@ -51,37 +55,35 @@ st.markdown("""
         border-radius: 8px !important;
     }
 
-    /* Texto dentro de los menús desplegables */
     section[data-testid="stSidebar"] div[data-baseweb="select"] * {
         color: #FFFFFF !important;
     }
 
-    /* 3. Contenedores st.container(border=True) - Fondo Blanco Puro con Sombra */
+    /* Contenedores st.container(border=True) */
     div[data-testid="stVerticalBlockBorderWrapper"] > div {
         background-color: #FFFFFF !important;
         border-radius: 14px !important;
-        border: 1px solid #E2E8F0 !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -2px rgba(0, 0, 0, 0.03) !important;
+        border: 1px solid #CBD5E1 !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
         padding: 18px !important;
     }
 
-    /* Textos dentro de los contenedores generales para legibilidad */
     div[data-testid="stVerticalBlockBorderWrapper"] h1,
     div[data-testid="stVerticalBlockBorderWrapper"] h2,
     div[data-testid="stVerticalBlockBorderWrapper"] h3,
     div[data-testid="stVerticalBlockBorderWrapper"] h4 {
         color: #0F172A !important;
-        font-weight: 700 !important;
+        font-weight: 800 !important;
     }
 
-    /* 4. Banner Principal */
+    /* Banner Principal */
     .header-banner {
         background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
         color: white;
         padding: 22px 28px;
         border-radius: 14px;
         margin-bottom: 25px;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -97,29 +99,24 @@ st.markdown("""
         font-weight: 600;
     }
 
-    /* 5. Tarjetas de KPIs (Fondo blanco brillante que resalta sobre #F4F6F9) */
+    /* Tarjetas de KPIs */
     .kpi-card {
         background-color: #FFFFFF;
-        border: 1px solid #E2E8F0;
+        border: 1px solid #CBD5E1;
         border-left: 5px solid #0F172A;
         border-radius: 12px;
         padding: 18px 20px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.02);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06);
         height: 100%;
     }
-    .kpi-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
-    }
-    .kpi-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; font-weight: 700; }
+    .kpi-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #334155; font-weight: 800; }
     .kpi-value { font-size: 28px; font-weight: 800; color: #0F172A; margin: 4px 0; }
-    .kpi-subtext { font-size: 11px; color: #64748B; font-weight: 500; }
+    .kpi-subtext { font-size: 11px; color: #475569; font-weight: 600; }
 
-    /* 6. Botones de Acción */
+    /* Botones */
     div.stButton > button, div.stDownloadButton > button { 
         border-radius: 8px; 
-        font-weight: 600;
+        font-weight: 700;
         background-color: #2563EB !important;
         color: #FFFFFF !important;
         border: none !important;
@@ -211,7 +208,7 @@ META_DIARIA_INDIVIDUAL = 3
 META_MENSUAL_EQUIPO = 2400
 META_GLOBAL_PROYECTO = 36099
 
-# --- BARRA LATERAL (SIDEBAR / PANEL DE CONTROL) ---
+# --- BARRA LATERAL ---
 with st.sidebar:
     st.image("LOGO-PROTECH.jpg", use_container_width=True)
     st.title("Panel de Control")
@@ -403,6 +400,9 @@ with col4:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
+# Estilo general para todos los gráficos de Plotly (Texto oscuro y legible)
+PLOTLY_FONT_STYLE = dict(color="#0F172A", family="Arial, sans-serif", size=12)
+
 # --- RANKING DE PRODUCCIÓN POR OPERARIO Y MES ---
 with st.container(border=True):
     col_rank_head, col_rank_filter = st.columns([0.65, 0.35])
@@ -429,12 +429,13 @@ with st.container(border=True):
             color="Cajas_Producidas", text="Cajas_Producidas",
             color_continuous_scale=["#0F172A", "#16A34A"]
         )
-        fig_ranking.update_traces(texttemplate='%{text}', textposition='outside')
+        fig_ranking.update_traces(texttemplate='%{text}', textposition='outside', textfont=dict(color="#0F172A", size=12))
         fig_ranking.update_layout(
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             margin=dict(l=220, r=60, t=10, b=20), height=altura_dinamica,
-            xaxis=dict(showgrid=True, gridcolor="#E2E8F0"), 
-            yaxis=dict(type='category', showgrid=False, dtick=1)
+            font=PLOTLY_FONT_STYLE,
+            xaxis=dict(showgrid=True, gridcolor="#CBD5E1", tickfont=dict(color="#0F172A", size=11), title_font=dict(color="#0F172A", size=13)), 
+            yaxis=dict(type='category', showgrid=False, dtick=1, tickfont=dict(color="#0F172A", size=12), title_font=dict(color="#0F172A", size=13))
         )
         st.plotly_chart(fig_ranking, use_container_width=True)
     else:
@@ -454,8 +455,9 @@ with st.container(border=True):
         fig_lineas = px.area(evolucion_diaria, x="Fecha", y="Cajas_Acumuladas", markers=True, color_discrete_sequence=["#0F172A"])
         fig_lineas.update_layout(
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False),
-            yaxis=dict(showgrid=True, gridcolor="#E2E8F0"),
+            font=PLOTLY_FONT_STYLE,
+            xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False, tickfont=dict(color="#0F172A", size=11), title_font=dict(color="#0F172A", size=13)),
+            yaxis=dict(showgrid=True, gridcolor="#CBD5E1", tickfont=dict(color="#0F172A", size=11), title_font=dict(color="#0F172A", size=13)),
             margin=dict(l=40, r=40, t=10, b=20), height=380
         )
         st.plotly_chart(fig_lineas, use_container_width=True)
@@ -487,14 +489,18 @@ with st.container(border=True):
         fig_estados = px.line(
             df_estados_sorted, x="Fecha", y=["TRD", "TP", "VIG", "FA"],
             labels={"value": "Cantidad", "Fecha": "Fecha", "variable": "Estado"},
-            markers=True, color_discrete_sequence=["#0F172A", "#16A34A", "#F59E0B", "#EF4444"]
+            markers=True, color_discrete_sequence=["#0F172A", "#16A34A", "#D97706", "#DC2626"]
         )
         fig_estados.update_layout(
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            font=PLOTLY_FONT_STYLE,
+            legend=dict(
+                orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                font=dict(color="#0F172A", size=12)
+            ),
             margin=dict(l=20, r=20, t=10, b=20),
-            xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False),
-            yaxis=dict(showgrid=True, gridcolor="#E2E8F0")
+            xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False, tickfont=dict(color="#0F172A", size=11), title_font=dict(color="#0F172A", size=13)),
+            yaxis=dict(showgrid=True, gridcolor="#CBD5E1", tickfont=dict(color="#0F172A", size=11), title_font=dict(color="#0F172A", size=13))
         )
         st.plotly_chart(fig_estados, use_container_width=True)
         
@@ -508,12 +514,6 @@ with st.container(border=True):
 # --- DETALLE Y REVISIÓN DE REGISTROS ---
 st.markdown("<br>", unsafe_allow_html=True)
 with st.expander("📄 Ver detalle de datos procesados (Tabla de Operarios)"):
-    if not df_filtrado_persona.empty:
-        df_detalle = df_filtrado_persona[["Fecha", "Persona", "Cajas_Identidad"]].copy()
-        df_detalle["Fecha"] = df_detalle["Fecha"].dt.strftime('%Y-%m-%d')
-        st.dataframe(df_detalle, use_container_width=True, hide_index=True)
-    else:
-        st.info("No hay datos de operarios registrados para los filtros seleccionados.")
     if not df_filtrado_persona.empty:
         df_detalle = df_filtrado_persona[["Fecha", "Persona", "Cajas_Identidad"]].copy()
         df_detalle["Fecha"] = df_detalle["Fecha"].dt.strftime('%Y-%m-%d')
