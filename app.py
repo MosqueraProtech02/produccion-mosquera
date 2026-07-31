@@ -13,28 +13,36 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. ESTILOS CSS PERSONALIZADOS (Efecto Tarjeta y Jerarquía Visual) ---
+# --- 2. ESTILOS CSS PERSONALIZADOS (Tema Gris Industrial y Tarjetas Flotantes) ---
 st.markdown("""
     <style>
-    /* Fondo general sutilmente gris para resaltar los bloques de información */
+    /* Fondo general del Dashboard en un gris/azulado contrastado */
     .stApp {
-        background-color: #F8FAFC;
+        background-color: #E2E8F0 !important;
+    }
+
+    /* Estilo de la Barra Lateral (Sidebar) en Azul Oscuro Profundo */
+    section[data-testid="stSidebar"] {
+        background-color: #0F172A !important;
+    }
+    section[data-testid="stSidebar"] * {
+        color: #E2E8F0 !important;
     }
 
     /* Encabezado Principal en Banner Corporativo */
     .header-banner {
-        background: linear-gradient(135deg, #1A365D 0%, #0F172A 100%);
+        background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
         color: white;
-        padding: 22px 28px;
-        border-radius: 14px;
+        padding: 24px 32px;
+        border-radius: 16px;
         margin-bottom: 25px;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
         display: flex;
         justify-content: space-between;
         align-items: center;
     }
-    .logo-consorcio { color: #FFFFFF; font-weight: 800; font-size: 26px; }
-    .logo-prosyc { color: #4ADE80; font-weight: 800; font-size: 26px; }
+    .logo-consorcio { color: #FFFFFF; font-weight: 800; font-size: 28px; }
+    .logo-prosyc { color: #22C55E; font-weight: 800; font-size: 28px; }
     .header-subtitle {
         font-size: 12px;
         color: #94A3B8;
@@ -44,40 +52,48 @@ st.markdown("""
         font-weight: 600;
     }
 
-    /* Tarjetas KPI de Alto Impacto */
+    /* Tarjetas KPI Blancas Elevadas sobre el Fondo Gris */
     .kpi-card {
         background-color: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-left: 5px solid #1A365D;
-        border-radius: 12px;
-        padding: 16px 20px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        border-radius: 14px;
+        padding: 20px;
+        border-left: 6px solid #1E3A8A;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         transition: transform 0.2s ease, box-shadow 0.2s ease;
         height: 100%;
     }
     .kpi-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+        transform: translateY(-4px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
     }
     .kpi-title {
         font-size: 11px;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.08em;
         color: #64748B;
         font-weight: 700;
     }
     .kpi-value {
-        font-size: 26px;
+        font-size: 28px;
         font-weight: 800;
         color: #0F172A;
-        margin: 4px 0;
+        margin: 6px 0;
     }
     .kpi-subtext {
-        font-size: 11px;
+        font-size: 12px;
         color: #64748B;
     }
 
-    /* Estilo para los botones de la barra lateral */
+    /* Estilo de las tarjetas de Streamlit (st.container con borde) */
+    div[data-testid="stVerticalBlock"] > div[style*="border"] {
+        background-color: #FFFFFF !important;
+        border-radius: 16px !important;
+        border: 1px solid #CBD5E1 !important;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08) !important;
+        padding: 22px !important;
+    }
+
+    /* Estilo para los botones */
     div.stButton > button {
         border-radius: 8px;
         font-weight: 600;
@@ -300,7 +316,7 @@ fecha_str = fecha_seleccionada.strftime('%Y-%m-%d') if fecha_seleccionada else "
 
 with col1:
     st.markdown(f"""
-        <div class="kpi-card" style="border-left-color: #1A365D;">
+        <div class="kpi-card" style="border-left-color: #1E3A8A;">
             <div class="kpi-title">Producción del Día ({fecha_str})</div>
             <div class="kpi-value">{total_cajas_dia} Cajas</div>
             <div class="kpi-subtext">Registradas en el sistema</div>
@@ -310,7 +326,7 @@ with col1:
 with col2:
     avance_mensual = (total_acumulado_mes_actual / META_MENSUAL_EQUIPO) * 100 if META_MENSUAL_EQUIPO > 0 else 0
     st.markdown(f"""
-        <div class="kpi-card" style="border-left-color: #2E7D32;">
+        <div class="kpi-card" style="border-left-color: #16A34A;">
             <div class="kpi-title">Avance Meta Mensual ({nombre_mes_kpi})</div>
             <div class="kpi-value">{avance_mensual:.1f}%</div>
             <div class="kpi-subtext">{total_acumulado_mes_actual:,} de {META_MENSUAL_EQUIPO:,} Cajas</div>
@@ -335,9 +351,9 @@ with col4:
         num_criticos = 0
         
     st.markdown(f"""
-        <div class="kpi-card" style="border-left-color: #EF4444;">
+        <div class="kpi-card" style="border-left-color: #DC2626;">
             <div class="kpi-title">Alertas Bajo Rendimiento</div>
-            <div class="kpi-value" style="color: #EF4444;">{num_criticos} Pers.</div>
+            <div class="kpi-value" style="color: #DC2626;">{num_criticos} Pers.</div>
             <div class="kpi-subtext">Menos de {META_DIARIA_INDIVIDUAL} cajas/día</div>
         </div>
     """, unsafe_allow_html=True)
@@ -362,7 +378,7 @@ with st.container(border=True):
             orientation="h", 
             color="Cajas_Producidas", 
             text="Cajas_Producidas",
-            color_continuous_scale=["#1A365D", "#2E7D32"]
+            color_continuous_scale=["#1E3A8A", "#16A34A"]
         )
         
         fig_ranking.update_traces(
@@ -375,7 +391,7 @@ with st.container(border=True):
             plot_bgcolor='rgba(0,0,0,0)',
             margin=dict(l=180, r=60, t=10, b=20),
             height=altura_dinamica,
-            xaxis=dict(showgrid=True, gridcolor="#E2E8F0"),
+            xaxis=dict(showgrid=True, gridcolor="#CBD5E1"),
             yaxis=dict(type='category', showgrid=False)
         )
         st.plotly_chart(fig_ranking, use_container_width=True)
@@ -393,19 +409,18 @@ with st.container(border=True):
         evolucion_diaria = evolucion_diaria.sort_values(by="Fecha")
         evolucion_diaria["Cajas_Acumuladas"] = evolucion_diaria["Cajas_Por_Dia"].cumsum()
         
-        # Gráfico de Área para un acabado con más volumen visual
         fig_lineas = px.area(
             evolucion_diaria, 
             x="Fecha", 
             y="Cajas_Acumuladas", 
             markers=True,
-            color_discrete_sequence=["#1A365D"]
+            color_discrete_sequence=["#1E3A8A"]
         )
         fig_lineas.update_layout(
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
             xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False),
-            yaxis=dict(showgrid=True, gridcolor="#E2E8F0"),
+            yaxis=dict(showgrid=True, gridcolor="#CBD5E1"),
             margin=dict(l=40, r=40, t=10, b=20),
             height=380
         )
@@ -441,7 +456,7 @@ with st.container(border=True):
             y=["TRD", "TP", "VIG", "FA"],
             labels={"value": "Cantidad", "Fecha": "Fecha", "variable": "Estado"},
             markers=True,
-            color_discrete_sequence=["#1A365D", "#2E7D32", "#F59E0B", "#EF4444"]
+            color_discrete_sequence=["#1E3A8A", "#16A34A", "#F59E0B", "#DC2626"]
         )
         
         fig_estados.update_layout(
@@ -450,7 +465,7 @@ with st.container(border=True):
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             margin=dict(l=20, r=20, t=10, b=20),
             xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False),
-            yaxis=dict(showgrid=True, gridcolor="#E2E8F0")
+            yaxis=dict(showgrid=True, gridcolor="#CBD5E1")
         )
         st.plotly_chart(fig_estados, use_container_width=True)
         
