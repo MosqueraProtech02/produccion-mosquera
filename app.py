@@ -13,112 +13,31 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. ESTILOS CSS PERSONALIZADOS (Legibilidad Extrema) ---
+# --- 2. ESTILOS CSS PERSONALIZADOS ---
 st.markdown("""
     <style>
-    /* Fondo principal gris muy suave */
-    .stApp { 
-        background-color: #F1F5F9 !important; 
-    }
-
-    /* Garantizar contraste alto en TODO el texto por defecto */
-    html, body, [class*="st-"], .stMarkdown, p, span, label {
-        color: #0F172A !important;
-    }
-
-    /* Barra Lateral - Fondo Azul Noche Ejecutivo */
-    section[data-testid="stSidebar"] { 
-        background-color: #0F172A !important; 
-    }
-
-    /* Colores del texto en la Barra Lateral */
+    .stApp { background-color: #F1F5F9; }
+    section[data-testid="stSidebar"] { background-color: #2D3748 !important; }
     section[data-testid="stSidebar"] h1, 
     section[data-testid="stSidebar"] h2, 
     section[data-testid="stSidebar"] h3, 
     section[data-testid="stSidebar"] span, 
     section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] div { 
-        color: #FFFFFF !important; 
-        font-weight: 500;
+    section[data-testid="stSidebar"] p { color: #F8FAFC !important; }
+
+    section[data-testid="stSidebar"] div[data-baseweb="select"] > div {
+        background-color: #1A202C !important;
+        color: #FFFFFF !important;
+        border-color: #4A5568 !important;
     }
 
-    section[data-testid="stSidebar"] .stCaption {
-        color: #94A3B8 !important;
-    }
-
-    /* ========================================================= */
-    /* AJUSTE SOLICITADO: CAMPOS DE BÚSQUEDA Y SELECTS A BLANCO Y NEGRO */
-    /* ========================================================= */
-    
-    /* 1. Fondo blanco y texto negro en selectbox/inputs generales (sidebar e interior) */
-    div[data-baseweb="select"] > div,
-    div[data-baseweb="input"] input,
-    section[data-testid="stSidebar"] div[data-baseweb="select"] > div,
-    section[data-testid="stSidebar"] div[data-baseweb="input"] input {
-        background-color: #FFFFFF !important;
-        color: #000000 !important;
-        border: 1px solid #CBD5E1 !important;
-        border-radius: 8px !important;
-    }
-
-    /* 2. Color negro para el texto dentro del select box y sus opciones */
-    div[data-baseweb="select"] *,
-    section[data-testid="stSidebar"] div[data-baseweb="select"] * {
-        color: #000000 !important;
-    }
-
-    /* 3. Menú desplegable emergente (dropdown de BaseWeb) */
-    ul[data-baseweb="menu"],
-    div[data-baseweb="popover"] {
-        background-color: #FFFFFF !important;
-    }
-
-    ul[data-baseweb="menu"] li,
-    ul[data-baseweb="menu"] li * {
-        color: #000000 !important;
-        background-color: #FFFFFF !important;
-    }
-
-    /* Hover en las opciones del menú desplegable */
-    ul[data-baseweb="menu"] li:hover,
-    ul[data-baseweb="menu"] li:hover * {
-        background-color: #E2E8F0 !important;
-        color: #000000 !important;
-    }
-
-    /* Placeholder o texto de ayuda en inputs */
-    div[data-baseweb="input"] input::placeholder {
-        color: #64748B !important;
-    }
-
-    /* ========================================================= */
-
-    /* Contenedores st.container(border=True) */
-    div[data-testid="stVerticalBlockBorderWrapper"] > div {
-        background-color: #FFFFFF !important;
-        border-radius: 14px !important;
-        border: 1px solid #CBD5E1 !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
-        padding: 18px !important;
-    }
-
-    div[data-testid="stVerticalBlockBorderWrapper"] h1,
-    div[data-testid="stVerticalBlockBorderWrapper"] h2,
-    div[data-testid="stVerticalBlockBorderWrapper"] h3,
-    div[data-testid="stVerticalBlockBorderWrapper"] h4 {
-        color: #0F172A !important;
-        font-weight: 800 !important;
-    }
-
-    /* Banner Principal */
     .header-banner {
-        background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+        background: linear-gradient(135deg, #1A365D 0%, #0F172A 100%);
         color: white;
         padding: 22px 28px;
         border-radius: 14px;
         margin-bottom: 25px;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -134,31 +53,25 @@ st.markdown("""
         font-weight: 600;
     }
 
-    /* Tarjetas de KPIs */
     .kpi-card {
         background-color: #FFFFFF;
-        border: 1px solid #CBD5E1;
-        border-left: 5px solid #0F172A;
+        border: 1px solid #E2E8F0;
+        border-left: 5px solid #1A365D;
         border-radius: 12px;
-        padding: 18px 20px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06);
+        padding: 16px 20px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
         height: 100%;
     }
-    .kpi-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #334155; font-weight: 800; }
-    .kpi-value { font-size: 28px; font-weight: 800; color: #0F172A; margin: 4px 0; }
-    .kpi-subtext { font-size: 11px; color: #475569; font-weight: 600; }
+    .kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+    }
+    .kpi-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748B; font-weight: 700; }
+    .kpi-value { font-size: 26px; font-weight: 800; color: #0F172A; margin: 4px 0; }
+    .kpi-subtext { font-size: 11px; color: #64748B; }
 
-    /* Botones */
-    div.stButton > button, div.stDownloadButton > button { 
-        border-radius: 8px; 
-        font-weight: 700;
-        background-color: #2563EB !important;
-        color: #FFFFFF !important;
-        border: none !important;
-    }
-    div.stButton > button:hover, div.stDownloadButton > button:hover {
-        background-color: #1D4ED8 !important;
-    }
+    div.stButton > button, div.stDownloadButton > button { border-radius: 8px; font-weight: 600; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -192,11 +105,13 @@ def cargar_datos_reales():
         df = df.rename(columns={col_fecha: "Fecha", col_persona: "Persona", col_cajas: "Cajas_Identidad"})
         df["Fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True, errors='coerce')
         
+        # Limpieza suave de espacios antes de dar formato
         df["Persona"] = df["Persona"].astype(str).str.strip().str.title().fillna("No Asignado")
         df["Cajas_Identidad_Num"] = df["Cajas_Identidad"].astype(str).str.extract(r'(\d+)').astype(float).fillna(0).astype(int)
         
         df = df.dropna(subset=["Fecha"])
         
+        # Permitir hasta el final del día de hoy para no descartar registros de la jornada actual
         hoy_fin = pd.Timestamp.now().floor('D') + pd.Timedelta(days=1)
         df = df[df["Fecha"] < hoy_fin]
         
@@ -243,8 +158,9 @@ META_DIARIA_INDIVIDUAL = 3
 META_MENSUAL_EQUIPO = 2400
 META_GLOBAL_PROYECTO = 36099
 
-# --- BARRA LATERAL ---
+# --- BARRA LATERAL (SIDEBAR / PANEL DE CONTROL) ---
 with st.sidebar:
+    # --- LOGO INTEGRADO EN EL SIDEBAR ---
     st.image("LOGO-PROTECH.jpg", use_container_width=True)
     st.title("Panel de Control")
     st.caption("Datos sincronizados en tiempo real")
@@ -255,6 +171,7 @@ with st.sidebar:
 
     st.markdown("---")
     
+    # Limpieza de personas evitando coincidencias parciales con nombres/apellidos
     palabras_ruido = ["humedad", "observacion", "comentario", "error", "vacio", "no asignado", "nan", "prueba"]
     patron_ruido = r'\b(' + '|'.join(palabras_ruido) + r')\b'
     
@@ -391,7 +308,7 @@ fecha_str = fecha_seleccionada.strftime('%Y-%m-%d') if fecha_seleccionada else "
 
 with col1:
     st.markdown(f"""
-        <div class="kpi-card" style="border-left-color: #0F172A;">
+        <div class="kpi-card" style="border-left-color: #1A365D;">
             <div class="kpi-title">Producción del Día ({fecha_str})</div>
             <div class="kpi-value">{total_cajas_dia} Cajas</div>
             <div class="kpi-subtext">Registradas en el sistema</div>
@@ -401,7 +318,7 @@ with col1:
 with col2:
     avance_mensual = (total_acumulado_mes_actual / META_MENSUAL_EQUIPO) * 100 if META_MENSUAL_EQUIPO > 0 else 0
     st.markdown(f"""
-        <div class="kpi-card" style="border-left-color: #16A34A;">
+        <div class="kpi-card" style="border-left-color: #2E7D32;">
             <div class="kpi-title">Avance Meta Mensual ({nombre_mes_kpi})</div>
             <div class="kpi-value">{avance_mensual:.1f}%</div>
             <div class="kpi-subtext">{total_acumulado_mes_actual:,} de {META_MENSUAL_EQUIPO:,} Cajas</div>
@@ -435,9 +352,6 @@ with col4:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Estilo general para todos los gráficos de Plotly (Texto oscuro y legible)
-PLOTLY_FONT_STYLE = dict(color="#0F172A", family="Arial, sans-serif", size=12)
-
 # --- RANKING DE PRODUCCIÓN POR OPERARIO Y MES ---
 with st.container(border=True):
     col_rank_head, col_rank_filter = st.columns([0.65, 0.35])
@@ -462,15 +376,14 @@ with st.container(border=True):
         fig_ranking = px.bar(
             ranking_df, x="Cajas_Producidas", y="Persona", orientation="h",
             color="Cajas_Producidas", text="Cajas_Producidas",
-            color_continuous_scale=["#0F172A", "#16A34A"]
+            color_continuous_scale=["#1A365D", "#2E7D32"]
         )
-        fig_ranking.update_traces(texttemplate='%{text}', textposition='outside', textfont=dict(color="#0F172A", size=12))
+        fig_ranking.update_traces(texttemplate='%{text}', textposition='outside')
         fig_ranking.update_layout(
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             margin=dict(l=220, r=60, t=10, b=20), height=altura_dinamica,
-            font=PLOTLY_FONT_STYLE,
-            xaxis=dict(showgrid=True, gridcolor="#CBD5E1", tickfont=dict(color="#0F172A", size=11), title_font=dict(color="#0F172A", size=13)), 
-            yaxis=dict(type='category', showgrid=False, dtick=1, tickfont=dict(color="#0F172A", size=12), title_font=dict(color="#0F172A", size=13))
+            xaxis=dict(showgrid=True, gridcolor="#E2E8F0"), 
+            yaxis=dict(type='category', showgrid=False, dtick=1)
         )
         st.plotly_chart(fig_ranking, use_container_width=True)
     else:
@@ -487,12 +400,11 @@ with st.container(border=True):
         evolucion_diaria = evolucion_diaria.sort_values(by="Fecha")
         evolucion_diaria["Cajas_Acumuladas"] = evolucion_diaria["Cajas_Por_Dia"].cumsum()
         
-        fig_lineas = px.area(evolucion_diaria, x="Fecha", y="Cajas_Acumuladas", markers=True, color_discrete_sequence=["#0F172A"])
+        fig_lineas = px.area(evolucion_diaria, x="Fecha", y="Cajas_Acumuladas", markers=True, color_discrete_sequence=["#1A365D"])
         fig_lineas.update_layout(
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            font=PLOTLY_FONT_STYLE,
-            xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False, tickfont=dict(color="#0F172A", size=11), title_font=dict(color="#0F172A", size=13)),
-            yaxis=dict(showgrid=True, gridcolor="#CBD5E1", tickfont=dict(color="#0F172A", size=11), title_font=dict(color="#0F172A", size=13)),
+            xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False),
+            yaxis=dict(showgrid=True, gridcolor="#E2E8F0"),
             margin=dict(l=40, r=40, t=10, b=20), height=380
         )
         st.plotly_chart(fig_lineas, use_container_width=True)
@@ -524,18 +436,14 @@ with st.container(border=True):
         fig_estados = px.line(
             df_estados_sorted, x="Fecha", y=["TRD", "TP", "VIG", "FA"],
             labels={"value": "Cantidad", "Fecha": "Fecha", "variable": "Estado"},
-            markers=True, color_discrete_sequence=["#0F172A", "#16A34A", "#D97706", "#DC2626"]
+            markers=True, color_discrete_sequence=["#1A365D", "#2E7D32", "#F59E0B", "#EF4444"]
         )
         fig_estados.update_layout(
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            font=PLOTLY_FONT_STYLE,
-            legend=dict(
-                orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                font=dict(color="#0F172A", size=12)
-            ),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             margin=dict(l=20, r=20, t=10, b=20),
-            xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False, tickfont=dict(color="#0F172A", size=11), title_font=dict(color="#0F172A", size=13)),
-            yaxis=dict(showgrid=True, gridcolor="#CBD5E1", tickfont=dict(color="#0F172A", size=11), title_font=dict(color="#0F172A", size=13))
+            xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False),
+            yaxis=dict(showgrid=True, gridcolor="#E2E8F0")
         )
         st.plotly_chart(fig_estados, use_container_width=True)
         
