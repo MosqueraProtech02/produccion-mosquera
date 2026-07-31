@@ -6,12 +6,6 @@ import io
 import plotly.express as px
 import plotly.graph_objects as go
 
-# Librerías para generación de PDF
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
-
 # --- 1. CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(
     page_title="Dashboard de Producción - Proceso Clasificación",
@@ -20,18 +14,23 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. ESTILOS CSS PERSONALIZADOS ---
+# --- 2. ESTILOS CSS PERSONALIZADOS (Tema Gris Industrial y Tarjetas Flotantes) ---
 st.markdown("""
     <style>
+    /* Fondo general del Dashboard en un gris/azulado contrastado */
     .stApp {
         background-color: #E2E8F0 !important;
     }
+
+    /* Estilo de la Barra Lateral (Sidebar) en Azul Oscuro Profundo */
     section[data-testid="stSidebar"] {
         background-color: #0F172A !important;
     }
     section[data-testid="stSidebar"] * {
         color: #E2E8F0 !important;
     }
+
+    /* Encabezado Principal en Banner Corporativo */
     .header-banner {
         background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
         color: white;
@@ -53,6 +52,8 @@ st.markdown("""
         text-align: right;
         font-weight: 600;
     }
+
+    /* Tarjetas KPI Blancas Elevadas sobre el Fondo Gris */
     .kpi-card {
         background-color: #FFFFFF;
         border-radius: 14px;
@@ -61,6 +62,10 @@ st.markdown("""
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         transition: transform 0.2s ease, box-shadow 0.2s ease;
         height: 100%;
+    }
+    .kpi-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
     }
     .kpi-title {
         font-size: 11px;
@@ -79,6 +84,8 @@ st.markdown("""
         font-size: 12px;
         color: #64748B;
     }
+
+    /* Estilo de las tarjetas de Streamlit (st.container con borde) */
     div[data-testid="stVerticalBlock"] > div[style*="border"] {
         background-color: #FFFFFF !important;
         border-radius: 16px !important;
@@ -86,6 +93,8 @@ st.markdown("""
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08) !important;
         padding: 22px !important;
     }
+
+    /* Estilo para los botones */
     div.stButton > button, div.stDownloadButton > button {
         border-radius: 8px;
         font-weight: 600;
@@ -100,32 +109,72 @@ def cargar_datos_reales():
         url = "https://docs.google.com/spreadsheets/d/1ld0sxAyU9mYhQ69yv6w2d4sWhK8QW4E0XZlz4hYMhfA/export?format=csv&gid=990786706"
         df = pd.read_csv(url)
         
+        # Limpieza uniforme de nombres de columnas
         df.columns = [col.strip().lower().replace('á','a').replace('é','e').replace('í','i').replace('ó','o').replace('ú','u') for col in df.columns]
         
-        col_fecha = next((c for c in df.columns if c in ['fecha', 'dia']), None)
+        # Mapeo inteligente con prioridades corregidas
+        col_fecha = None
+        for c in df.columns:
+            if c in ['fecha', 'dia']:
+                col_fecha = c
+                break
         if not col_fecha:
-            col_fecha = next((c for c in df.columns if 'fecha' in c or 'dia' in c), df.columns[0])
-            
-        col_persona = next((c for c in df.columns if c in ['persona', 'operario']), None)
+            for c in df.columns:
+                if 'fecha' in c or 'dia' in c:
+                    col_fecha = c
+                    break
+        if not col_fecha: 
+            col_fecha = df.columns[0]
+        
+        col_persona = None
+        for c in df.columns:
+            if c in ['persona', 'operario']:
+                col_persona = c
+                break
         if not col_persona:
-            col_persona = next((c for c in df.columns if any(x in c for x in ['persona', 'operario', 'nombre', 'usuario', 'empleado'])), df.columns[1])
-            
-        col_cajas = next((c for c in df.columns if any(x in c for x in ['cajas_identidad', 'caja_identidad', 'identidad'])), None)
+            for c in df.columns:
+                if any(x in c for x in ['persona', 'operario', 'nombre', 'usuario', 'empleado']):
+                    col_persona = c
+                    break
+        if not col_persona: 
+            col_persona = df.columns[1]
+        
+        col_cajas = None
+        for c in df.columns:
+            if any(x in c for x in ['cajas_identidad', 'caja_identidad', 'identidad']):
+                col_cajas = c
+                break
         if not col_cajas:
-            col_cajas = next((c for c in df.columns if any(x in c for x in ['caja', 'produc', 'rendi', 'total', 'cant'])), df.columns[2])
-            
+            for c in df.columns:
+                if any(x in c for x in ['caja', 'produc', 'rendi', 'total', 'cant']):
+                    col_cajas = c
+                    break
+        if not col_cajas: 
+            col_cajas = df.columns[2]
+        
+        # Renombrar columnas de forma segura
         df = df.rename(columns={col_fecha: "Fecha", col_persona: "Persona", col_cajas: "Cajas_Identidad"})
+        
+        # Interpretación de fecha
         df["Fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True, errors='coerce')
+        
+        # Estandarizar nombres
         df["Persona"] = df["Persona"].astype(str).str.strip().str.title().fillna("No Asignado")
+        
+        # Extraer números de manera segura
         df["Cajas_Identidad_Num"] = df["Cajas_Identidad"].astype(str).str.extract(r'(\d+)').astype(float).fillna(0).astype(int)
         
+        # Eliminar filas donde la Fecha sea inválida o nula
         df = df.dropna(subset=["Fecha"])
+        
+        # Filtro de seguridad dinámico contra fechas futuras accidentales
         hoy = pd.Timestamp.now().normalize()
         df = df[df["Fecha"] <= hoy]
         
         return df.sort_values(by="Fecha")
     except Exception as e:
         st.sidebar.error(f"❌ Error al mapear Hoja Principal: {str(e)}")
+        np.random.seed(42)
         personas = ["Yamith Marín", "Andres Felipe Riveros", "Adriana Patricia Riano Medina"]
         fechas = pd.date_range(start="2026-05-01", end="2026-05-10", freq="D")
         records = []
@@ -141,8 +190,10 @@ def cargar_datos_estados():
     try:
         url_estados = "https://docs.google.com/spreadsheets/d/1ld0sxAyU9mYhQ69yv6w2d4sWhK8QW4E0XZlz4hYMhfA/gviz/tq?tqx=out:csv&sheet=Estados"
         df_est = pd.read_csv(url_estados)
+        
         df_est.columns = [col.strip() for col in df_est.columns]
         df_est = df_est.dropna(subset=["Fecha"]).copy()
+        
         df_est["Fecha"] = pd.to_datetime(df_est["Fecha"], dayfirst=True, errors='coerce')
         
         hoy = pd.Timestamp.now().normalize()
@@ -153,72 +204,11 @@ def cargar_datos_estados():
                 df_est[col] = pd.to_numeric(df_est[col], errors='coerce').fillna(0).astype(int)
             else:
                 df_est[col] = 0
-                
+        
         return df_est.dropna(subset=["Fecha"]).sort_values(by="Fecha")
     except Exception as e:
         st.sidebar.error(f"❌ Error al mapear Hoja Estados: {str(e)}")
         return pd.DataFrame(columns=["Fecha", "TRD", "TP", "VIG", "FA"])
-
-# --- FUNCION AUXILIAR: GENERAR PDF ---
-def generar_pdf_reporte(df_data, nombre_operario):
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=letter,
-        rightMargin=36,
-        leftMargin=36,
-        topMargin=36,
-        bottomMargin=36
-    )
-    story = []
-    styles = getSampleStyleSheet()
-    
-    # Estilos personalizados
-    title_style = ParagraphStyle(
-        'DocTitle',
-        parent=styles['Heading1'],
-        fontSize=18,
-        textColor=colors.HexColor('#0F172A'),
-        spaceAfter=6
-    )
-    subtitle_style = ParagraphStyle(
-        'DocSubTitle',
-        parent=styles['Normal'],
-        fontSize=10,
-        textColor=colors.HexColor('#64748B'),
-        spaceAfter=15
-    )
-    
-    # Encabezado del PDF
-    story.append(Paragraph("Consorcio Prosyc - Reporte de Producción", title_style))
-    story.append(Paragraph(f"<b>Filtro:</b> {nombre_operario} | <b>Fecha de emisión:</b> {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}", subtitle_style))
-    story.append(Spacer(1, 10))
-    
-    # Construcción de la Tabla de Datos
-    tabla_datos = [["Fecha", "Operario / Persona", "Identificación Caja"]]
-    for _, row in df_data.iterrows():
-        fecha_str = row['Fecha'].strftime('%Y-%m-%d') if isinstance(row['Fecha'], pd.Timestamp) else str(row['Fecha'])
-        tabla_datos.append([fecha_str, str(row['Persona']), str(row['Cajas_Identidad'])])
-    
-    # Estilo visual de la Tabla
-    t = Table(tabla_datos, colWidths=[120, 240, 180])
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#F8FAFC')),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 9),
-    ]))
-    
-    story.append(t)
-    doc.build(story)
-    buffer.seek(0)
-    return buffer.getvalue()
 
 # --- CARGA INICIAL DE DATOS ---
 df_raw = cargar_datos_reales()
@@ -235,6 +225,7 @@ with st.sidebar:
     st.title("Panel de Control")
     st.caption("Datos sincronizados en tiempo real")
     
+    # Cuadro informativo de columnas detectadas
     st.info("Columnas detectadas:\n- Fecha: `Fecha` \n- Operario: `Persona` \n- Identidad Caja: `Cajas_Identidad`")
 
     if st.button("🔄 Sincronizar Google Sheets", key="sync_btn", use_container_width=True):
@@ -243,7 +234,7 @@ with st.sidebar:
 
     st.markdown("---")
     
-    # Limpieza de operarios
+    # Limpieza avanzada de operarios
     palabras_ruido = ["humedad", "observacion", "comentario", "error", "vacio", "no asignado", "nan", "prueba"]
     df_limpio = df_raw[
         (df_raw["Persona"].notna()) & 
@@ -261,44 +252,52 @@ with st.sidebar:
 
     if fechas_disponibles_str:
         ultima_fecha_str = pd.to_datetime(df_limpio["Fecha"].max()).strftime('%Y-%m-%d')
-        index_defecto = fechas_disponibles_str.index(ultima_fecha_str) if ultima_fecha_str in fechas_disponibles_str else len(fechas_disponibles_str) - 1
-        fecha_seleccionada_str = st.selectbox("Seleccionar Día Específico:", fechas_disponibles_str, index=index_defecto)
+        try:
+            index_defecto = fechas_disponibles_str.index(ultima_fecha_str)
+        except ValueError:
+            index_defecto = len(fechas_disponibles_str) - 1
+
+        fecha_seleccionada_str = st.selectbox(
+            "Seleccionar Día Específico:", 
+            fechas_disponibles_str,
+            index=index_defecto  
+        )
         fecha_seleccionada = pd.to_datetime(fecha_seleccionada_str)
     else:
         fecha_seleccionada = None
 
-    # --- MÓDULO DE DESCARGA (EXCEL Y PDF) ---
+    # --- SECCIÓN DE DESCARGA DE DATOS EN EL PANEL DE CONTROL ---
     st.markdown("---")
     st.subheader("📥 Descargar Reporte")
     
     df_exportar = df_limpio if persona_seleccionada == "Todos" else df_limpio[df_limpio["Persona"] == persona_seleccionada]
     
-    formato_descarga = st.radio("Formato de exportación:", ["Excel (.xlsx)", "PDF Documento (.pdf)"], key="format_download")
+    # Preparar DataFrame para descarga
+    df_download = df_exportar[["Fecha", "Persona", "Cajas_Identidad"]].copy()
+    df_download["Fecha"] = df_download["Fecha"].dt.strftime('%Y-%m-%d')
     
-    if formato_descarga == "Excel (.xlsx)":
-        output = io.BytesIO()
-        df_excel = df_exportar[["Fecha", "Persona", "Cajas_Identidad"]].copy()
-        df_excel["Fecha"] = df_excel["Fecha"].dt.strftime('%Y-%m-%d')
-        
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df_excel.to_excel(writer, index=False, sheet_name='Reporte_Produccion')
-        excel_bytes = output.getvalue()
-        
+    formato_descarga = st.radio("Formato de descarga:", ["Excel (.xlsx)", "CSV (.csv)"], key="format_download")
+    
+    if formato_descarga == "CSV (.csv)":
+        csv_data = df_download.to_csv(index=False).encode('utf-8-sig')
         st.download_button(
-            label="📊 Descargar Excel",
-            data=excel_bytes,
-            file_name=f"reporte_produccion_{persona_seleccionada.lower().replace(' ', '_')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            label="📄 Descargar CSV",
+            data=csv_data,
+            file_name=f"reporte_produccion_{persona_seleccionada.lower().replace(' ', '_')}.csv",
+            mime="text/csv",
             use_container_width=True
         )
     else:
-        pdf_bytes = generar_pdf_reporte(df_exportar, persona_seleccionada)
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df_download.to_excel(writer, index=False, sheet_name='Produccion')
+        excel_data = output.getvalue()
         
         st.download_button(
-            label="📄 Descargar Reporte PDF",
-            data=pdf_bytes,
-            file_name=f"reporte_produccion_{persona_seleccionada.lower().replace(' ', '_')}.pdf",
-            mime="application/pdf",
+            label="📊 Descargar Excel",
+            data=excel_data,
+            file_name=f"reporte_produccion_{persona_seleccionada.lower().replace(' ', '_')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
 
@@ -350,6 +349,7 @@ st.markdown("""
 
 # --- TARJETAS DE KPIS PRINCIPALES ---
 col1, col2, col3, col4 = st.columns(4)
+
 fecha_str = fecha_seleccionada.strftime('%Y-%m-%d') if fecha_seleccionada else ""
 
 with col1:
@@ -398,23 +398,39 @@ with col4:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- SECCIÓN DE GRÁFICOS ---
+# --- SECCIÓN DE GRÁFICOS DENTRO DE CONTENEDORES ---
+
+# 1. Ranking de Producción (Sección Superior)
 with st.container(border=True):
     st.markdown("### 🏆 Ranking de Producción Acumulada por Persona")
     if not df_filtrado_persona.empty:
         ranking_df = df_filtrado_persona.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
+        
         cant_operarios = len(ranking_df)
         altura_dinamica = int(max(400, 150 + (cant_operarios * 30)))
         
         fig_ranking = px.bar(
-            ranking_df, x="Cajas_Producidas", y="Persona", orientation="h", color="Cajas_Producidas", text="Cajas_Producidas",
+            ranking_df, 
+            x="Cajas_Producidas", 
+            y="Persona", 
+            orientation="h", 
+            color="Cajas_Producidas", 
+            text="Cajas_Producidas",
             color_continuous_scale=["#1E3A8A", "#16A34A"]
         )
-        fig_ranking.update_traces(texttemplate='%{text}', textposition='outside')
+        
+        fig_ranking.update_traces(
+            texttemplate='%{text}',
+            textposition='outside'
+        )
+        
         fig_ranking.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=180, r=60, t=10, b=20), height=altura_dinamica,
-            xaxis=dict(showgrid=True, gridcolor="#CBD5E1"), yaxis=dict(type='category', showgrid=False)
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=180, r=60, t=10, b=20),
+            height=altura_dinamica,
+            xaxis=dict(showgrid=True, gridcolor="#CBD5E1"),
+            yaxis=dict(type='category', showgrid=False)
         )
         st.plotly_chart(fig_ranking, use_container_width=True)
     else:
@@ -422,6 +438,7 @@ with st.container(border=True):
 
 st.markdown("<br>", unsafe_allow_html=True)
 
+# 2. Progreso de Metas e Historial (Sección Inferior)
 with st.container(border=True):
     st.markdown("### 🎯 Progreso de Metas e Historial")
     if not df_filtrado_persona.empty:
@@ -430,19 +447,28 @@ with st.container(border=True):
         evolucion_diaria = evolucion_diaria.sort_values(by="Fecha")
         evolucion_diaria["Cajas_Acumuladas"] = evolucion_diaria["Cajas_Por_Dia"].cumsum()
         
-        fig_lineas = px.area(evolucion_diaria, x="Fecha", y="Cajas_Acumuladas", markers=True, color_discrete_sequence=["#1E3A8A"])
+        fig_lineas = px.area(
+            evolucion_diaria, 
+            x="Fecha", 
+            y="Cajas_Acumuladas", 
+            markers=True,
+            color_discrete_sequence=["#1E3A8A"]
+        )
         fig_lineas.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
             xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False),
-            yaxis=dict(showgrid=True, gridcolor="#CBD5E1"), margin=dict(l=40, r=40, t=10, b=20), height=380
+            yaxis=dict(showgrid=True, gridcolor="#CBD5E1"),
+            margin=dict(l=40, r=40, t=10, b=20),
+            height=380
         )
         st.plotly_chart(fig_lineas, use_container_width=True)
     else:
         st.info("No hay datos históricos disponibles.")
 
+# --- SECCIÓN CONSOLIDADO ESTADOS ---
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- CONSOLIDADO ESTADOS ---
 with st.container(border=True):
     st.markdown("## 📊 Consolidado Estados")
     st.caption("Avance Diario e Histórico Consecutivo")
@@ -460,15 +486,23 @@ with st.container(border=True):
         me3.metric(label="VIG", value=f"{int(ultimo_registro['VIG'])}")
         me4.metric(label="FA", value=f"{int(ultimo_registro['FA'])}")
             
+        st.markdown("#### 📈 Comportamiento y Evolución Diaria de los Estados")
+        
         fig_estados = px.line(
-            df_estados_sorted, x="Fecha", y=["TRD", "TP", "VIG", "FA"],
+            df_estados_sorted, 
+            x="Fecha", 
+            y=["TRD", "TP", "VIG", "FA"],
             labels={"value": "Cantidad", "Fecha": "Fecha", "variable": "Estado"},
-            markers=True, color_discrete_sequence=["#1E3A8A", "#16A34A", "#F59E0B", "#DC2626"]
+            markers=True,
+            color_discrete_sequence=["#1E3A8A", "#16A34A", "#F59E0B", "#DC2626"]
         )
+        
         fig_estados.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            margin=dict(l=20, r=20, t=10, b=20), xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False),
+            margin=dict(l=20, r=20, t=10, b=20),
+            xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False),
             yaxis=dict(showgrid=True, gridcolor="#CBD5E1")
         )
         st.plotly_chart(fig_estados, use_container_width=True)
