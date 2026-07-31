@@ -16,34 +16,21 @@ st.set_page_config(
 # --- 2. ESTILOS CSS PERSONALIZADOS ---
 st.markdown("""
     <style>
-    /* FONDO PRINCIPAL DEL DASHBOARD */
-    .stApp { 
-        background-color: #F1F5F9; 
-    }
-
-    /* BARRA LATERAL (PANEL DE CONTROL) - GRIS AZULADO */
-    section[data-testid="stSidebar"] {
-        background-color: #2D3748 !important;
-    }
-
-    /* TEXTOS Y TÍTULOS DENTRO DEL PANEL DE CONTROL EN BLANCO/GRIS CLARO */
+    .stApp { background-color: #F1F5F9; }
+    section[data-testid="stSidebar"] { background-color: #2D3748 !important; }
     section[data-testid="stSidebar"] h1, 
     section[data-testid="stSidebar"] h2, 
     section[data-testid="stSidebar"] h3, 
     section[data-testid="stSidebar"] span, 
     section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] p {
-        color: #F8FAFC !important;
-    }
+    section[data-testid="stSidebar"] p { color: #F8FAFC !important; }
 
-    /* CAJAS SELECTORAS (SELECTBOX) Y DESPLEGABLES EN SIDEBAR */
     section[data-testid="stSidebar"] div[data-baseweb="select"] > div {
         background-color: #1A202C !important;
         color: #FFFFFF !important;
         border-color: #4A5568 !important;
     }
 
-    /* HEADER BANNER */
     .header-banner {
         background: linear-gradient(135deg, #1A365D 0%, #0F172A 100%);
         color: white;
@@ -66,7 +53,6 @@ st.markdown("""
         font-weight: 600;
     }
 
-    /* TARJETAS KPI */
     .kpi-card {
         background-color: #FFFFFF;
         border: 1px solid #E2E8F0;
@@ -81,33 +67,14 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
     }
-    .kpi-title {
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #64748B;
-        font-weight: 700;
-    }
-    .kpi-value {
-        font-size: 26px;
-        font-weight: 800;
-        color: #0F172A;
-        margin: 4px 0;
-    }
-    .kpi-subtext {
-        font-size: 11px;
-        color: #64748B;
-    }
+    .kpi-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748B; font-weight: 700; }
+    .kpi-value { font-size: 26px; font-weight: 800; color: #0F172A; margin: 4px 0; }
+    .kpi-subtext { font-size: 11px; color: #64748B; }
 
-    /* BOTONES */
-    div.stButton > button, div.stDownloadButton > button {
-        border-radius: 8px;
-        font-weight: 600;
-    }
+    div.stButton > button, div.stDownloadButton > button { border-radius: 8px; font-weight: 600; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- DICCIONARIO PARA NOMBRES DE MESES ---
 MESES_ESPANOL = {
     1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 
     5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 
@@ -137,18 +104,22 @@ def cargar_datos_reales():
         
         df = df.rename(columns={col_fecha: "Fecha", col_persona: "Persona", col_cajas: "Cajas_Identidad"})
         df["Fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True, errors='coerce')
+        
+        # Limpieza suave de espacios antes de dar formato
         df["Persona"] = df["Persona"].astype(str).str.strip().str.title().fillna("No Asignado")
         df["Cajas_Identidad_Num"] = df["Cajas_Identidad"].astype(str).str.extract(r'(\d+)').astype(float).fillna(0).astype(int)
         
         df = df.dropna(subset=["Fecha"])
-        hoy = pd.Timestamp.now().normalize()
-        df = df[df["Fecha"] <= hoy]
+        
+        # Permitir hasta el final del día de hoy para no descartar registros de la jornada actual
+        hoy_fin = pd.Timestamp.now().floor('D') + pd.Timedelta(days=1)
+        df = df[df["Fecha"] < hoy_fin]
         
         return df.sort_values(by="Fecha")
     except Exception as e:
         st.sidebar.error(f"❌ Error al mapear Hoja Principal: {str(e)}")
         np.random.seed(42)
-        personas = ["Yamith Marín", "Andres Felipe Riveros", "Adriana Patricia Riano Medina"]
+        personas = ["Yamith Marín", "Andres Felipe Riveros", "Monica Hernandez Morales"]
         fechas = pd.date_range(start="2026-05-01", end="2026-05-10", freq="D")
         records = []
         for i, fecha in enumerate(fechas):
@@ -167,8 +138,8 @@ def cargar_datos_estados():
         df_est = df_est.dropna(subset=["Fecha"]).copy()
         df_est["Fecha"] = pd.to_datetime(df_est["Fecha"], dayfirst=True, errors='coerce')
         
-        hoy = pd.Timestamp.now().normalize()
-        df_est = df_est[df_est["Fecha"] <= hoy]
+        hoy_fin = pd.Timestamp.now().floor('D') + pd.Timedelta(days=1)
+        df_est = df_est[df_est["Fecha"] < hoy_fin]
         
         for col in ["TRD", "TP", "VIG", "FA"]:
             df_est[col] = pd.to_numeric(df_est[col], errors='coerce').fillna(0).astype(int) if col in df_est.columns else 0
@@ -199,14 +170,15 @@ with st.sidebar:
 
     st.markdown("---")
     
-    # Limpieza de personas / operarios
+    # Limpieza de personas (Aumentado el límite de longitud a 80 y sanitizado el strip)
     palabras_ruido = ["humedad", "observacion", "comentario", "error", "vacio", "no asignado", "nan", "prueba"]
+    
     df_limpio = df_raw[
         (df_raw["Persona"].notna()) & 
-        (df_raw["Persona"] != "") &
+        (df_raw["Persona"].str.strip() != "") &
         (df_raw["Persona"] != "No Asignado") &
         (~df_raw["Persona"].str.lower().str.contains('|'.join(palabras_ruido))) &
-        (df_raw["Persona"].str.len() < 45)
+        (df_raw["Persona"].str.len() < 80)
     ].copy()
 
     df_limpio["Anio_Mes"] = df_limpio["Fecha"].dt.to_period("M")
@@ -214,7 +186,6 @@ with st.sidebar:
     lista_personas = ["Todos"] + sorted(list(df_limpio["Persona"].unique()))
     persona_seleccionada = st.selectbox("Seleccionar Operario:", lista_personas)
 
-    # RANGO DE REGISTRO DEL OPERARIO
     if persona_seleccionada != "Todos":
         df_op_info = df_limpio[df_limpio["Persona"] == persona_seleccionada]
         if not df_op_info.empty:
@@ -398,7 +369,7 @@ with st.container(border=True):
 
     if not df_ranking_base.empty:
         ranking_df = df_ranking_base.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
-        altura_dinamica = int(max(400, 150 + (len(ranking_df) * 30)))
+        altura_dinamica = int(max(450, 150 + (len(ranking_df) * 35)))
         
         fig_ranking = px.bar(
             ranking_df, x="Cajas_Producidas", y="Persona", orientation="h",
@@ -408,8 +379,9 @@ with st.container(border=True):
         fig_ranking.update_traces(texttemplate='%{text}', textposition='outside')
         fig_ranking.update_layout(
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=180, r=60, t=10, b=20), height=altura_dinamica,
-            xaxis=dict(showgrid=True, gridcolor="#E2E8F0"), yaxis=dict(type='category', showgrid=False)
+            margin=dict(l=220, r=60, t=10, b=20), height=altura_dinamica,
+            xaxis=dict(showgrid=True, gridcolor="#E2E8F0"), 
+            yaxis=dict(type='category', showgrid=False, dtick=1)
         )
         st.plotly_chart(fig_ranking, use_container_width=True)
     else:
