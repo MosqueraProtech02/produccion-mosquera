@@ -2,10 +2,17 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import datetime
+import io
 import plotly.express as px
 import plotly.graph_objects as go
 
-# --- 1. CONFIGURACIÓN DE LA PÁGINA (Sidebar desplegado por defecto) ---
+# Importaciones para la generación de reportes PDF
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+
+# --- 1. CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(
     page_title="Dashboard de Producción - Proceso Clasificación",
     page_icon="📊",
@@ -16,12 +23,12 @@ st.set_page_config(
 # --- 2. ESTILOS CSS PERSONALIZADOS (Tema Gris Industrial y Tarjetas Flotantes) ---
 st.markdown("""
     <style>
-    /* Fondo general del Dashboard en un gris/azulado contrastado */
+    /* Fondo general del Dashboard */
     .stApp {
         background-color: #E2E8F0 !important;
     }
 
-    /* Estilo de la Barra Lateral (Sidebar) en Azul Oscuro Profundo */
+    /* Estilo de la Barra Lateral (Sidebar) */
     section[data-testid="stSidebar"] {
         background-color: #0F172A !important;
     }
@@ -29,7 +36,7 @@ st.markdown("""
         color: #E2E8F0 !important;
     }
 
-    /* Encabezado Principal en Banner Corporativo */
+    /* Encabezado Principal */
     .header-banner {
         background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
         color: white;
@@ -52,7 +59,7 @@ st.markdown("""
         font-weight: 600;
     }
 
-    /* Tarjetas KPI Blancas Elevadas sobre el Fondo Gris */
+    /* Tarjetas KPI */
     .kpi-card {
         background-color: #FFFFFF;
         border-radius: 14px;
@@ -84,7 +91,7 @@ st.markdown("""
         color: #64748B;
     }
 
-    /* Estilo de las tarjetas de Streamlit (st.container con borde) */
+    /* Estilo de los contenedores */
     div[data-testid="stVerticalBlock"] > div[style*="border"] {
         background-color: #FFFFFF !important;
         border-radius: 16px !important;
@@ -94,12 +101,73 @@ st.markdown("""
     }
 
     /* Estilo para los botones */
-    div.stButton > button {
+    div.stButton > button, div.stDownloadButton > button {
         border-radius: 8px;
         font-weight: 600;
     }
     </style>
 """, unsafe_allow_html=True)
+
+# --- FUNCIÓN AUXILIAR: GENERAR REPORTE EN PDF ---
+def generar_pdf_reporte(df_data, nombre_operario):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=36,
+        bottomMargin=36
+    )
+    story = []
+    styles = getSampleStyleSheet()
+    
+    # Estilos del PDF
+    title_style = ParagraphStyle(
+        'DocTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        textColor=colors.HexColor('#0F172A'),
+        spaceAfter=6
+    )
+    subtitle_style = ParagraphStyle(
+        'DocSubTitle',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.HexColor('#64748B'),
+        spaceAfter=15
+    )
+    
+    # Encabezado del documento
+    story.append(Paragraph("Consorcio Prosyc - Reporte de Producción", title_style))
+    story.append(Paragraph(f"<b>Operario / Filtro:</b> {nombre_operario} | <b>Fecha de Emisión:</b> {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}", subtitle_style))
+    story.append(Spacer(1, 10))
+    
+    # Construcción de la tabla
+    tabla_datos = [["Fecha", "Operario / Persona", "Identificación Caja"]]
+    for _, row in df_data.iterrows():
+        fecha_str = row['Fecha'].strftime('%Y-%m-%d') if isinstance(row['Fecha'], pd.Timestamp) else str(row['Fecha'])
+        tabla_datos.append([fecha_str, str(row['Persona']), str(row['Cajas_Identidad'])])
+    
+    # Aplicar diseño tabular
+    t = Table(tabla_datos, colWidths=[120, 240, 180])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#F8FAFC')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 9),
+    ]))
+    
+    story.append(t)
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
 
 # --- 3. CARGA DE DATOS DESDE GOOGLE SHEETS ---
 @st.cache_data(ttl=10)
@@ -111,7 +179,6 @@ def cargar_datos_reales():
         # Limpieza uniforme de nombres de columnas
         df.columns = [col.strip().lower().replace('á','a').replace('é','e').replace('í','i').replace('ó','o').replace('ú','u') for col in df.columns]
         
-        # Mapeo inteligente con prioridades corregidas
         col_fecha = None
         for c in df.columns:
             if c in ['fecha', 'dia']:
@@ -151,22 +218,12 @@ def cargar_datos_reales():
         if not col_cajas: 
             col_cajas = df.columns[2]
         
-        # Renombrar columnas de forma segura
         df = df.rename(columns={col_fecha: "Fecha", col_persona: "Persona", col_cajas: "Cajas_Identidad"})
-        
-        # Interpretación de fecha
         df["Fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True, errors='coerce')
-        
-        # Estandarizar nombres
         df["Persona"] = df["Persona"].astype(str).str.strip().str.title().fillna("No Asignado")
-        
-        # Extraer números de manera segura
         df["Cajas_Identidad_Num"] = df["Cajas_Identidad"].astype(str).str.extract(r'(\d+)').astype(float).fillna(0).astype(int)
         
-        # Eliminar filas donde la Fecha sea inválida o nula
         df = df.dropna(subset=["Fecha"])
-        
-        # Filtro de seguridad dinámico contra fechas futuras accidentales
         hoy = pd.Timestamp.now().normalize()
         df = df[df["Fecha"] <= hoy]
         
@@ -224,7 +281,6 @@ with st.sidebar:
     st.title("Panel de Control")
     st.caption("Datos sincronizados en tiempo real")
     
-    # Cuadro informativo de columnas detectadas
     st.info("Columnas detectadas:\n- Fecha: `Fecha` \n- Operario: `Persona` \n- Identidad Caja: `Cajas_Identidad`")
 
     if st.button("🔄 Sincronizar Google Sheets", key="sync_btn", use_container_width=True):
@@ -264,6 +320,41 @@ with st.sidebar:
         fecha_seleccionada = pd.to_datetime(fecha_seleccionada_str)
     else:
         fecha_seleccionada = None
+
+    # --- SECCIÓN DE DESCARGA INTEGRADAS (EXCEL Y PDF) ---
+    st.markdown("---")
+    st.subheader("📥 Descargar Reporte")
+    
+    df_exportar = df_limpio if persona_seleccionada == "Todos" else df_limpio[df_limpio["Persona"] == persona_seleccionada]
+    
+    formato_descarga = st.radio("Formato de exportación:", ["Excel (.xlsx)", "PDF (.pdf)"], key="format_download")
+    
+    if formato_descarga == "Excel (.xlsx)":
+        output = io.BytesIO()
+        df_excel = df_exportar[["Fecha", "Persona", "Cajas_Identidad"]].copy()
+        df_excel["Fecha"] = df_excel["Fecha"].dt.strftime('%Y-%m-%d')
+        
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df_excel.to_excel(writer, index=False, sheet_name='Reporte_Produccion')
+        excel_bytes = output.getvalue()
+        
+        st.download_button(
+            label="📊 Descargar Excel",
+            data=excel_bytes,
+            file_name=f"reporte_produccion_{persona_seleccionada.lower().replace(' ', '_')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+    else:
+        pdf_bytes = generar_pdf_reporte(df_exportar, persona_seleccionada)
+        
+        st.download_button(
+            label="📄 Descargar PDF",
+            data=pdf_bytes,
+            file_name=f"reporte_produccion_{persona_seleccionada.lower().replace(' ', '_')}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
 
 # --- FILTRADO DE DATOS ---
 df_filtrado_persona = df_limpio if persona_seleccionada == "Todos" else df_limpio[df_limpio["Persona"] == persona_seleccionada]
