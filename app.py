@@ -160,7 +160,8 @@ META_GLOBAL_PROYECTO = 36099
 
 # --- BARRA LATERAL (SIDEBAR / PANEL DE CONTROL) ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/771/771239.png", width=70)
+    # --- LOGO INTEGRADO EN EL SIDEBAR ---
+    st.image("LOGO-PROTECH.jpg", use_container_width=True)
     st.title("Panel de Control")
     st.caption("Datos sincronizados en tiempo real")
 
