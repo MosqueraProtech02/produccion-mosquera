@@ -13,26 +13,50 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. ESTILOS CSS PERSONALIZADOS ---
+# --- 2. ESTILOS CSS PERSONALIZADOS (Ajustado para Máxima Legibilidad) ---
 st.markdown("""
     <style>
-    .stApp { background-color: #F1F5F9; }
-    section[data-testid="stSidebar"] { background-color: #2D3748 !important; }
+    /* Fondo general de la aplicación */
+    .stApp { background-color: #F8FAFC; }
+
+    /* Barra Lateral - Fondo Azul Noche Ejecutivo */
+    section[data-testid="stSidebar"] { 
+        background-color: #0F172A !important; 
+    }
+
+    /* Colores del texto en la Barra Lateral */
     section[data-testid="stSidebar"] h1, 
     section[data-testid="stSidebar"] h2, 
     section[data-testid="stSidebar"] h3, 
     section[data-testid="stSidebar"] span, 
     section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] p { color: #F8FAFC !important; }
-
-    section[data-testid="stSidebar"] div[data-baseweb="select"] > div {
-        background-color: #1A202C !important;
-        color: #FFFFFF !important;
-        border-color: #4A5568 !important;
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] div { 
+        color: #FFFFFF !important; 
+        font-weight: 500;
     }
 
+    /* Subtítulos y textos secundarios en el sidebar */
+    section[data-testid="stSidebar"] .stCaption {
+        color: #94A3B8 !important;
+    }
+
+    /* Campos de Selección (Selectbox y Desplegables) en la Barra Lateral */
+    section[data-testid="stSidebar"] div[data-baseweb="select"] > div {
+        background-color: #1E293B !important;
+        color: #FFFFFF !important;
+        border: 1px solid #334155 !important;
+        border-radius: 8px !important;
+    }
+
+    /* Texto dentro de los menús desplegables */
+    section[data-testid="stSidebar"] div[data-baseweb="select"] * {
+        color: #FFFFFF !important;
+    }
+
+    /* Banner Principal */
     .header-banner {
-        background: linear-gradient(135deg, #1A365D 0%, #0F172A 100%);
+        background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
         color: white;
         padding: 22px 28px;
         border-radius: 14px;
@@ -53,10 +77,11 @@ st.markdown("""
         font-weight: 600;
     }
 
+    /* Tarjetas de KPIs */
     .kpi-card {
         background-color: #FFFFFF;
         border: 1px solid #E2E8F0;
-        border-left: 5px solid #1A365D;
+        border-left: 5px solid #0F172A;
         border-radius: 12px;
         padding: 16px 20px;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
@@ -71,7 +96,17 @@ st.markdown("""
     .kpi-value { font-size: 26px; font-weight: 800; color: #0F172A; margin: 4px 0; }
     .kpi-subtext { font-size: 11px; color: #64748B; }
 
-    div.stButton > button, div.stDownloadButton > button { border-radius: 8px; font-weight: 600; }
+    /* Botones de acción */
+    div.stButton > button, div.stDownloadButton > button { 
+        border-radius: 8px; 
+        font-weight: 600;
+        background-color: #2563EB !important;
+        color: #FFFFFF !important;
+        border: none !important;
+    }
+    div.stButton > button:hover, div.stDownloadButton > button:hover {
+        background-color: #1D4ED8 !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -105,13 +140,11 @@ def cargar_datos_reales():
         df = df.rename(columns={col_fecha: "Fecha", col_persona: "Persona", col_cajas: "Cajas_Identidad"})
         df["Fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True, errors='coerce')
         
-        # Limpieza suave de espacios antes de dar formato
         df["Persona"] = df["Persona"].astype(str).str.strip().str.title().fillna("No Asignado")
         df["Cajas_Identidad_Num"] = df["Cajas_Identidad"].astype(str).str.extract(r'(\d+)').astype(float).fillna(0).astype(int)
         
         df = df.dropna(subset=["Fecha"])
         
-        # Permitir hasta el final del día de hoy para no descartar registros de la jornada actual
         hoy_fin = pd.Timestamp.now().floor('D') + pd.Timedelta(days=1)
         df = df[df["Fecha"] < hoy_fin]
         
@@ -160,7 +193,6 @@ META_GLOBAL_PROYECTO = 36099
 
 # --- BARRA LATERAL (SIDEBAR / PANEL DE CONTROL) ---
 with st.sidebar:
-    # --- LOGO INTEGRADO EN EL SIDEBAR ---
     st.image("LOGO-PROTECH.jpg", use_container_width=True)
     st.title("Panel de Control")
     st.caption("Datos sincronizados en tiempo real")
@@ -171,7 +203,6 @@ with st.sidebar:
 
     st.markdown("---")
     
-    # Limpieza de personas evitando coincidencias parciales con nombres/apellidos
     palabras_ruido = ["humedad", "observacion", "comentario", "error", "vacio", "no asignado", "nan", "prueba"]
     patron_ruido = r'\b(' + '|'.join(palabras_ruido) + r')\b'
     
@@ -308,7 +339,7 @@ fecha_str = fecha_seleccionada.strftime('%Y-%m-%d') if fecha_seleccionada else "
 
 with col1:
     st.markdown(f"""
-        <div class="kpi-card" style="border-left-color: #1A365D;">
+        <div class="kpi-card" style="border-left-color: #0F172A;">
             <div class="kpi-title">Producción del Día ({fecha_str})</div>
             <div class="kpi-value">{total_cajas_dia} Cajas</div>
             <div class="kpi-subtext">Registradas en el sistema</div>
@@ -318,7 +349,7 @@ with col1:
 with col2:
     avance_mensual = (total_acumulado_mes_actual / META_MENSUAL_EQUIPO) * 100 if META_MENSUAL_EQUIPO > 0 else 0
     st.markdown(f"""
-        <div class="kpi-card" style="border-left-color: #2E7D32;">
+        <div class="kpi-card" style="border-left-color: #16A34A;">
             <div class="kpi-title">Avance Meta Mensual ({nombre_mes_kpi})</div>
             <div class="kpi-value">{avance_mensual:.1f}%</div>
             <div class="kpi-subtext">{total_acumulado_mes_actual:,} de {META_MENSUAL_EQUIPO:,} Cajas</div>
@@ -376,7 +407,7 @@ with st.container(border=True):
         fig_ranking = px.bar(
             ranking_df, x="Cajas_Producidas", y="Persona", orientation="h",
             color="Cajas_Producidas", text="Cajas_Producidas",
-            color_continuous_scale=["#1A365D", "#2E7D32"]
+            color_continuous_scale=["#0F172A", "#16A34A"]
         )
         fig_ranking.update_traces(texttemplate='%{text}', textposition='outside')
         fig_ranking.update_layout(
@@ -400,7 +431,7 @@ with st.container(border=True):
         evolucion_diaria = evolucion_diaria.sort_values(by="Fecha")
         evolucion_diaria["Cajas_Acumuladas"] = evolucion_diaria["Cajas_Por_Dia"].cumsum()
         
-        fig_lineas = px.area(evolucion_diaria, x="Fecha", y="Cajas_Acumuladas", markers=True, color_discrete_sequence=["#1A365D"])
+        fig_lineas = px.area(evolucion_diaria, x="Fecha", y="Cajas_Acumuladas", markers=True, color_discrete_sequence=["#0F172A"])
         fig_lineas.update_layout(
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             xaxis=dict(type='date', tickformat='%Y-%m-%d', showgrid=False),
@@ -436,7 +467,7 @@ with st.container(border=True):
         fig_estados = px.line(
             df_estados_sorted, x="Fecha", y=["TRD", "TP", "VIG", "FA"],
             labels={"value": "Cantidad", "Fecha": "Fecha", "variable": "Estado"},
-            markers=True, color_discrete_sequence=["#1A365D", "#2E7D32", "#F59E0B", "#EF4444"]
+            markers=True, color_discrete_sequence=["#0F172A", "#16A34A", "#F59E0B", "#EF4444"]
         )
         fig_estados.update_layout(
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
