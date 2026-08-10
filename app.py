@@ -373,26 +373,46 @@ with col4:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- RANKING DE PRODUCCIÓN POR OPERARIO Y MES ---
+# --- RANKING DE PRODUCCIÓN POR OPERARIO ---
 with st.container():
-    col_rank_head, col_rank_filter = st.columns([0.65, 0.35])
+    col_rank_head, col_rank_filter = st.columns([0.55, 0.45])
     with col_rank_head:
         st.markdown("### 🏆 Ranking de Producción por Operario")
     with col_rank_filter:
+        tipo_ranking = st.radio(
+            "Ver ranking por:",
+            ["Diario", "Mensual"],
+            horizontal=True,
+            key="selector_tipo_ranking"
+        )
+
+    # Filtrar según el tipo de vista seleccionada
+    if tipo_ranking == "Diario":
+        if fecha_seleccionada is not None:
+            df_ranking_base = df_filtrado_persona[df_filtrado_persona["Fecha"] == fecha_seleccionada]
+            subtitulo_rank = f"Producción del día {fecha_str}"
+        else:
+            df_ranking_base = pd.DataFrame()
+            subtitulo_rank = "Sin fecha seleccionada"
+    else:
         periodos_rank = sorted(list(df_limpio["Anio_Mes"].unique()), reverse=True)
         opciones_meses_rank = ["Todos los Meses"] + [f"{MESES_ESPANOL[p.month]} {p.year}" for p in periodos_rank]
         mes_rank_sel = st.selectbox("📅 Seleccionar Mes para Ranking:", opciones_meses_rank, key="rank_mes_sel")
 
-    if mes_rank_sel != "Todos los Meses":
-        idx_mes_rank = opciones_meses_rank.index(mes_rank_sel) - 1
-        periodo_rank_elegido = periodos_rank[idx_mes_rank]
-        df_ranking_base = df_filtrado_persona[df_filtrado_persona["Anio_Mes"] == periodo_rank_elegido]
-    else:
-        df_ranking_base = df_filtrado_persona
+        if mes_rank_sel != "Todos los Meses":
+            idx_mes_rank = opciones_meses_rank.index(mes_rank_sel) - 1
+            periodo_rank_elegido = periodos_rank[idx_mes_rank]
+            df_ranking_base = df_filtrado_persona[df_filtrado_persona["Anio_Mes"] == periodo_rank_elegido]
+            subtitulo_rank = f"Producción del mes {mes_rank_sel}"
+        else:
+            df_ranking_base = df_filtrado_persona
+            subtitulo_rank = "Producción acumulada (Todos los Meses)"
+
+    st.caption(subtitulo_rank)
 
     if not df_ranking_base.empty:
         ranking_df = df_ranking_base.groupby("Persona").size().reset_index(name="Cajas_Producidas").sort_values(by="Cajas_Producidas", ascending=True)
-        altura_dinamica = int(max(450, 150 + (len(ranking_df) * 35)))
+        altura_dinamica = int(max(350, 100 + (len(ranking_df) * 35)))
         
         fig_ranking = px.bar(
             ranking_df, x="Cajas_Producidas", y="Persona", orientation="h",
@@ -403,13 +423,13 @@ with st.container():
         fig_ranking.update_layout(
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             font=dict(color="#FFFFFF"),
-            margin=dict(l=220, r=60, t=10, b=20), height=altura_dinamica,
+            margin=dict(l=180, r=60, t=10, b=20), height=altura_dinamica,
             xaxis=dict(showgrid=True, gridcolor="#718096", tickfont=dict(color="#FFFFFF")), 
             yaxis=dict(type='category', showgrid=False, dtick=1, tickfont=dict(color="#FFFFFF"))
         )
         st.plotly_chart(fig_ranking, use_container_width=True)
     else:
-        st.info("No hay datos disponibles para el mes o filtro seleccionado.")
+        st.info(f"No hay datos registrados para el filtro {tipo_ranking.lower()} seleccionado.")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
