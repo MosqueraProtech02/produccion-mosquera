@@ -702,81 +702,88 @@ with st.container():
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- ACTUALIZACIÓN: CAJAS INTERVENIDAS POR MES ---
+# --- CAJAS INTERVENIDAS POR MES (DISEÑO REORGANIZADO) ---
 with st.container():
   st.markdown("## 📦 Cajas Intervenidas por Mes")
 
   if not df_filtrado_persona.empty:
-    # Agrupar por mes/año y contar la cantidad total de cajas
+    # 1. Agrupar por mes/año y ordenar por fecha real
     cajas_por_mes = (
-        df_filtrado_persona.groupby("Anio_Mes")
+        df_filtrado_persona.groupby(
+            df_filtrado_persona["Fecha"].dt.to_period("M")
+        )
         .size()
         .reset_index(name="Total_Cajas")
     )
-    cajas_por_mes["Mes_Texto"] = cajas_por_mes["Anio_Mes"].apply(
-        lambda p: f"{MESES_ESPANOL[p.month]} {p.year}"
-    )
-    cajas_por_mes["Mes_Sort"] = cajas_por_mes["Anio_Mes"].astype(str)
-    cajas_por_mes = cajas_por_mes.sort_values(by="Mes_Sort")
 
-    # Métrica del último mes
-    ultimo_mes_txt = cajas_por_mes.iloc[-1]["Mes_Texto"]
-    total_ultimo_mes = cajas_por_mes.iloc[-1]["Total_Cajas"]
+    cajas_por_mes["Mes_DT"] = cajas_por_mes["Fecha"].dt.to_timestamp()
+    cajas_por_mes["Mes_Texto"] = cajas_por_mes["Mes_DT"].apply(
+        lambda d: f"{MESES_ESPANOL[d.month]} {d.year}"
+    )
+    cajas_por_mes = cajas_por_mes.sort_values(by="Mes_DT")
+
+    # 2. Métricas comparativas
+    ultimo_registro_mes = cajas_por_mes.iloc[-1]
+    nombre_ultimo_mes = ultimo_registro_mes["Mes_Texto"]
+    total_ultimo_mes = int(ultimo_registro_mes["Total_Cajas"])
 
     if len(cajas_por_mes) > 1:
-      total_mes_anterior = cajas_por_mes.iloc[-2]["Total_Cajas"]
+      total_mes_anterior = int(cajas_por_mes.iloc[-2]["Total_Cajas"])
       delta_cajas = total_ultimo_mes - total_mes_anterior
     else:
       delta_cajas = None
 
-    c_metric1, c_metric2, c_chart = st.columns([1, 1, 2])
+    total_acumulado_historico = int(cajas_por_mes["Total_Cajas"].sum())
 
-    with c_metric1:
+    # 3. FILA SUPERIOR: Métricas en tarjetas horizontales
+    m_col1, m_col2 = st.columns(2)
+
+    with m_col1:
       st.metric(
-          label=f"Cajas ({ultimo_mes_txt})",
+          label=f"Cajas ({nombre_ultimo_mes})",
           value=f"{total_ultimo_mes:,}",
           delta=f"{delta_cajas:+,} vs mes anterior"
           if delta_cajas is not None
           else None,
       )
 
-    with c_metric2:
+    with m_col2:
       st.metric(
           label="Total Cajas Acumuladas",
-          value=f"{cajas_por_mes['Total_Cajas'].sum():,}",
+          value=f"{total_acumulado_historico:,}",
       )
 
-    with c_chart:
-      fig_mes = px.bar(
-          cajas_por_mes,
-          x="Mes_Texto",
-          y="Total_Cajas",
-          title="Evolución Mensual de Cajas Intervenidas",
-          labels={"Mes_Texto": "Mes", "Total_Cajas": "Cantidad de Cajas"},
-          text="Total_Cajas",
-          color_discrete_sequence=["#38BDF8"],
-      )
-      fig_mes.update_traces(
-          texttemplate="%{text}",
-          textposition="outside",
-          textfont=dict(color="#FFFFFF"),
-      )
-      fig_mes.update_layout(
-          paper_bgcolor="rgba(0,0,0,0)",
-          plot_bgcolor="rgba(0,0,0,0)",
-          font=dict(color="#FFFFFF"),
-          xaxis=dict(
-              showgrid=False,
-              tickfont=dict(color="#FFFFFF"),
-              type="category",
-          ),
-          yaxis=dict(
-              showgrid=True, gridcolor="#718096", tickfont=dict(color="#FFFFFF")
-          ),
-          margin=dict(l=20, r=20, t=30, b=20),
-          height=320,
-      )
-      st.plotly_chart(fig_mes, use_container_width=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # 4. FILA INFERIOR: Gráfico a pantalla/ancho completo
+    fig_mes = px.bar(
+        cajas_por_mes,
+        x="Mes_Texto",
+        y="Total_Cajas",
+        title="Evolución Mensual de Cajas Intervenidas",
+        labels={"Mes_Texto": "Mes", "Total_Cajas": "Cantidad de Cajas"},
+        text="Total_Cajas",
+        color_discrete_sequence=["#38BDF8"],
+    )
+    fig_mes.update_traces(
+        texttemplate="%{text:,}",
+        textposition="outside",
+        textfont=dict(color="#FFFFFF"),
+    )
+    fig_mes.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#FFFFFF"),
+        xaxis=dict(
+            showgrid=False, tickfont=dict(color="#FFFFFF"), type="category"
+        ),
+        yaxis=dict(
+            showgrid=True, gridcolor="#718096", tickfont=dict(color="#FFFFFF")
+        ),
+        margin=dict(l=20, r=20, t=30, b=20),
+        height=380,
+    )
+    st.plotly_chart(fig_mes, use_container_width=True)
   else:
     st.info("No hay datos disponibles para mostrar el resumen mensual.")
 
